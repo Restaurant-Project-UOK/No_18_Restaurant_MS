@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+
+langchain
+langchain-openai
+langchain-community
+langchain-text-splitters
+langchainhub
+
+chromadb
+tiktoken
+
+pymongo
+python-dotenv
+jinja2
+requests
+aiofiles
