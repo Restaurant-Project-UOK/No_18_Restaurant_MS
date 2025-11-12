@@ -29,6 +29,14 @@ If you add any variables specific to your module, include a short comment descri
  Custom Variable (With Service Name)
 YOUR_KEY=yourapikey  # Used for external API requests
 
+# restaurant-platform
+The Full Stack Project Repo
+
+# Embed code for ChatBot
+<script 
+  src="http://localhost:8000/embed.js"
+  defer>
+</script>
 
 ## 📘 Task Analysis
 Use your project handbook to analyze and understand your assigned task before beginning development.
