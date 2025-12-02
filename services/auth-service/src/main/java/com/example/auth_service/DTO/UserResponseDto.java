@@ -11,12 +11,19 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 
 public class UserResponseDto {
-    public UserResponseDto(User user) {
-    //TODO Auto-generated constructor stub
-  }
+
     private Integer id;
     private String email;
     private Integer role;      // 1=CUSTOMER, 2=ADMIN, 3=KITCHEN
     private Integer provider;  // 1=LOCAL, 2=GOOGLE
     private ProfileDto profile;
+
+
+        // Convert User entity to DTO
+    public UserResponseDto(User user) {
+        this.id = user.getId();
+        this.email = user.getEmail();
+        this.role = user.getRole();
+        this.provider = user.getProvider();
+    }
 }
