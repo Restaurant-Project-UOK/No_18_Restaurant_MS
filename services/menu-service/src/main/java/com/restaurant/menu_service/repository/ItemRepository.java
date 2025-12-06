@@ -1,18 +1,18 @@
 package com.restaurant.menu_service.repository;
 
 import com.restaurant.menu_service.entity.Item;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
-public interface ItemRepository extends JpaRepository<Item, Long> {
+public interface ItemRepository extends MongoRepository<Item, String> {
+    List<Item> findByRestaurantId(String restaurantId);
 
-    List<Item> findByRestaurantId(Long restaurantId);
+    List<Item> findByRestaurantIdAndCategoryIdsIn(String restaurantId, List<String> categoryIds);
 
-    Optional<Item> findByIdAndRestaurantId(Long id, Long restaurantId);
+    boolean existsByCategoryIdsContaining(String categoryId);
 
-    boolean existsByIdAndRestaurantId(Long id, Long restaurantId);
+    boolean existsByModifierIdsContaining(String modifierId);
 }

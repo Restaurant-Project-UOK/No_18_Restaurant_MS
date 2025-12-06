@@ -1,23 +1,15 @@
 package com.restaurant.menu_service.entity;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.Data;
 
-@Entity
-@Table(name = "categories")
+@Document("categories")
 @Data
 public class Category {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "name", nullable = false)
+    private String id;
+    private String restaurantId;
     private String name;
-
-    @Column(name = "sort_order")
-    private int sortOrder;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "restaurant_id", nullable = false)
-    private Restaurant restaurant;
+    private Integer sortOrder = 0;
 }

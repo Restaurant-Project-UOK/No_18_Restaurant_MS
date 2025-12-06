@@ -1,20 +1,19 @@
 package com.restaurant.menu_service.entity;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.Data;
 
-@Entity
-@Table(name = "modifiers")
+import java.util.List;
+import java.util.Map;
+
+@Document("modifiers")
 @Data
 public class Modifier {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
+    private String itemId;
     private String name;
-    private String type;
-    private String options; // Mapped from JSON
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_id", nullable = false)
-    private Item item;
+    private String type; // single|multiple
+    private List<Map<String, Object>> options;
 }
