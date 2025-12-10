@@ -11,12 +11,20 @@ export default function Login() {
     e.preventDefault();
     try {
       const res = await login({ email, password });
-      localStorage.setItem("accessToken", res.accessToken);
-      navigate("/profile"); // Navigate to profile after login
+      // If your login function returns axios response
+      const accessToken = res.accessToken; 
+      const refreshToken = res.refreshToken;
+
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+      alert("Login successful, navigating...");
+
+      navigate("/profile"); // Navigate after login
     } catch (err) {
-      alert(err.message || "Login failed");
+      alert(err.response?.data?.message || err.message || "Login failed");
     }
   };
+
 
   return (
     <div>

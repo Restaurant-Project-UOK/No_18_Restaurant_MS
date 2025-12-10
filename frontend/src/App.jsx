@@ -13,11 +13,11 @@ function App() {
         <Route path="/" element={token ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={token ? <Profile /> : <Navigate to="/login" />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </Router>
   );
-  
+
 }
 
 export default App;

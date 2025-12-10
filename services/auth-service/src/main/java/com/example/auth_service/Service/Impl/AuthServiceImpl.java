@@ -2,6 +2,7 @@ package com.example.auth_service.Service.Impl;
 
 import java.time.LocalDateTime;
 
+import com.example.auth_service.Repository.ProfileRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +11,7 @@ import com.example.auth_service.DTO.LoginRequestDto;
 import com.example.auth_service.DTO.RegisterRequestDto;
 import com.example.auth_service.DTO.TokenResponseDto;
 import com.example.auth_service.DTO.ProfileDto;
+import com.example.auth_service.Entity.Profile;
 import com.example.auth_service.Entity.Token;
 import com.example.auth_service.Entity.User;
 import com.example.auth_service.Repository.TokenRepository;
@@ -24,17 +26,20 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenRepository tokenRepository;
+    private final ProfileRepository profileRepository;
 
     public AuthServiceImpl(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            TokenRepository tokenRepository
+            TokenRepository tokenRepository,
+            ProfileRepository profileRepository
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.tokenRepository = tokenRepository;
+        this.profileRepository = profileRepository;
     }
 
     @Transactional
@@ -44,14 +49,22 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Email already in use");
         }
 
+        // Create and save user
         User user = new User();
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         user.setRole(dto.getRole());
         user.setProvider(dto.getProvider());
+        User savedUser = userRepository.save(user);
 
-        userRepository.save(user);
-        return new ProfileDto(user, null);
+        // Create profile linked to the user
+        Profile profile = new Profile();
+        profile.setUser(savedUser);        // crucial: maps ID automatically
+        profile.setFullName(dto.getFullName());
+        // optional: set phone, address, additionalInfo if provided
+        profileRepository.save(profile);
+
+        return new ProfileDto(savedUser, profile);
     }
 
     @Override
@@ -65,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Update last login
-        user.setLastLogin(LocalDateTime.now());
+
         userRepository.save(user);
 
         String accessToken = jwtService.generateAccessToken(user);

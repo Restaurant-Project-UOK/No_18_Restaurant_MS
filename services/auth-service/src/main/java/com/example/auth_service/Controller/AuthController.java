@@ -25,8 +25,8 @@ public class AuthController {
     @PostMapping("/register")
     @Transactional
     public ResponseEntity<ProfileDto> register(@RequestBody RegisterRequestDto dto) {
-        authService.register(dto);
-        return ResponseEntity.noContent().build();
+        ProfileDto profileDto = authService.register(dto);
+        return ResponseEntity.ok(profileDto);
     }
 
     // Login user (email + password)
