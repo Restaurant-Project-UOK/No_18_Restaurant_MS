@@ -21,6 +21,11 @@ public class ItemService {
 
     @Transactional
     public ItemResponseDTO create(ItemRequestDTO dto) {
+        // Manual validation for create
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            throw new BadRequestException("name is required");
+        }
+        
         // restaurant exists
         restaurantRepo.findById(dto.getRestaurantId()).orElseThrow(() -> new NotFoundException("Restaurant not found"));
 

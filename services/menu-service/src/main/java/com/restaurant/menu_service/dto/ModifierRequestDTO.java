@@ -21,7 +21,6 @@ public class ModifierRequestDTO {
     @NonEmptyOptions
     private List<Map<String, Object>> options;
 
-    @NotBlank(message = "itemId is required")
     @ValidObjectId
     private String itemId;
 }
