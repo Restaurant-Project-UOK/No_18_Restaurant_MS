@@ -9,7 +9,6 @@ import java.util.Map;
 
 @Data
 public class ItemRequestDTO {
-    @NotBlank(message = "name is required")
     private String name;
 
     private String description;
@@ -31,6 +30,5 @@ public class ItemRequestDTO {
     @ValidObjectId
     private List<String> modifierIds;
 
-    @NotBlank(message = "restaurantId is required")
     private String restaurantId;
 }

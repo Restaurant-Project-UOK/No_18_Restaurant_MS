@@ -12,6 +12,5 @@ public class CategoryRequestDTO {
 
     private Integer sortOrder = 0;
 
-    @NotBlank(message = "restaurantId is required")
     private String restaurantId;
 }

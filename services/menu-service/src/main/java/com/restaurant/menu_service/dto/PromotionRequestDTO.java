@@ -11,7 +11,6 @@ public class PromotionRequestDTO {
     @NotBlank(message = "name required")
     private String name;
 
-    @NotBlank(message = "restaurantId required")
     private String restaurantId;
 
     @NotBlank(message = "discountType required")

@@ -17,7 +17,10 @@ public class MediaController {
 
     private final MediaService mediaService;
 
-    @PostMapping("/upload")
+    @PostMapping(
+        value = "/upload",
+        consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ApiResponse<Map<String, String>>> upload(@RequestParam("file") MultipartFile file)
             throws IOException {
         String id = mediaService.store(file);
