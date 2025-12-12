@@ -35,7 +35,7 @@ public class ProfileController {
             ProfileDto profileDto = profileService.getProfile(userId);
             System.out.println("++++++++++++++++++"+ profileDto);
 
-            return ResponseEntity.ok(profileDto);
+            return ResponseEntity.ok("fdvdhvfd");
         } catch (Exception e) {
             e.printStackTrace(); // logs the exact cause in backend
             return ResponseEntity.status(500).body(null);
