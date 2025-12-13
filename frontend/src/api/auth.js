@@ -1,6 +1,6 @@
 // src/api/auth.js
 
-const BASE_URL = "http://localhost:8081/api/auth"; // matches @RequestMapping("/api/auth")
+const BASE_URL = "http://172.20.10.6:8081/api/auth"; // matches @RequestMapping("/api/auth")
 
 // Register (ignore response)
 export async function register({ fullName, email, password, role = 1 }) {

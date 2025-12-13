@@ -9,9 +9,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173") // React frontend
+                .allowedOriginPatterns("http://localhost:5173", "http://172.20.*.*:5173") // allow any LAN IP
                 .allowedMethods("*")
                 .allowedHeaders("*")
-                .allowCredentials(true); // required only if using cookies
+                .allowCredentials(true);
     }
 }

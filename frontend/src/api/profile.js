@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8081/api/profile";
+const BASE_URL = "http://172.20.10.6:8081/api/profile";
 
 /**
  * Get current user's profile
