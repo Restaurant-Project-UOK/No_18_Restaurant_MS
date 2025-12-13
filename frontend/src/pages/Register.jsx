@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom"; // add this
 import { register } from "../api/auth";
 
 export default function Register() {
@@ -6,13 +7,13 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState(1);
-  const [result, setResult] = useState(null);
+  const navigate = useNavigate(); // hook for navigation
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await register({ fullName, email, password, role });
-      setResult(res);
+      await register({ fullName, email, password, role }); // ignore response
+      navigate("/login"); // redirect to login after registration
     } catch (error) {
       alert(error?.message || "Failed to register");
     }
@@ -47,13 +48,6 @@ export default function Register() {
         </select><br/>
         <button type="submit">Register</button>
       </form>
-
-      {result && (
-        <div>
-          <h3>Registration Result:</h3>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
 }

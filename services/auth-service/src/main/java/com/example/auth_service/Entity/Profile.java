@@ -2,47 +2,32 @@ package com.example.auth_service.Entity;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "profiles")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
+@Entity
+@Table(name = "profiles")
 public class Profile {
 
     @Id
-    private Integer id; // same as user.id
+    private Integer id; // Same as User.id
 
-    @MapsId
-    @OneToOne
-    @JoinColumn(name = "user_id")
-    private User user;
-
-    @Column
     private String fullName;
-
-    @Column
     private String phone;
-
-    @Column
     private String address;
 
-    @Column(columnDefinition = "json")
-    private String additionalInfo; // role-specific JSON data
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime createdAt; // Profile creation timestamp
+    private LocalDateTime updatedAt; // Profile last update timestamp
+
+    // One-to-one relationship with User
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId // Profile ID comes from User ID
+    @JoinColumn(name = "id") // Foreign key to User.id
+    private User user;
 }

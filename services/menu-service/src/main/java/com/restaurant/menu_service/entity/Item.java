@@ -1,46 +1,24 @@
 package com.restaurant.menu_service.entity;
 
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-import java.util.HashSet;
-import java.util.Set;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
-@Entity
-@Table(name = "items")
+@Document("menu_items")
 @Data
-@EqualsAndHashCode(exclude = "categories") // Avoid recursion issues
 public class Item {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "name", nullable = false)
+    private String id;
+    private String restaurantId;
     private String name;
-
     private String description;
-
-    @Column(nullable = false)
     private BigDecimal price;
-
-    @Column(name = "image_id")
     private String imageId;
-
-    private String dietary;
-
-    @Column(name = "is_active")
-    private boolean is_active = true;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "restaurant_id", nullable = false)
-    private Restaurant restaurant;
-
-    @ManyToMany(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
-    @JoinTable(
-        name = "item_categories",
-        joinColumns = @JoinColumn(name = "item_id"),
-        inverseJoinColumns = @JoinColumn(name = "category_id")
-    )
-    private Set<Category> categories = new HashSet<>();
+    private Map<String, Object> dietaryInfo;
+    private Boolean available = true;
+    private List<String> categoryIds;
+    private List<String> modifierIds;
 }

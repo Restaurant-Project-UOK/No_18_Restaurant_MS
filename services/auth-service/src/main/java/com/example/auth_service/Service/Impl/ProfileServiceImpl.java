@@ -1,11 +1,11 @@
 package com.example.auth_service.Service.Impl;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.time.LocalDateTime;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.auth_service.DTO.ProfileDto;
-import com.example.auth_service.DTO.UserResponseDto;
 import com.example.auth_service.Entity.Profile;
 import com.example.auth_service.Entity.User;
 import com.example.auth_service.Repository.ProfileRepository;
@@ -15,38 +15,46 @@ import com.example.auth_service.Service.ProfileService;
 @Service
 public class ProfileServiceImpl implements ProfileService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
 
-    @Autowired
-    private ProfileRepository profileRepository;
+    public ProfileServiceImpl(UserRepository userRepository, ProfileRepository profileRepository) {
+        this.userRepository = userRepository;
+        this.profileRepository = profileRepository;
+    }
 
     @Override
-    public UserResponseDto getProfile(Integer userId) {
+    public ProfileDto getProfile(Integer userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return new UserResponseDto(user);
+
+        Profile profile = profileRepository.findById(userId).orElse(null);
+
+        return new ProfileDto(user, profile);
     }
 
     @Transactional
     @Override
-    public UserResponseDto updateProfile(Integer userId, ProfileDto dto) {
+    public ProfileDto updateProfile(Integer userId, ProfileDto profileDto) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Profile profile = user.getProfile();
-        if (profile == null) {
-            profile = new Profile();
-            profile.setUser(user);
-        }
+        Profile profile = profileRepository.findById(userId).orElseGet(() -> {
+            Profile newProfile = new Profile();
+            newProfile.setId(userId);
+            newProfile.setUser(user);
+            newProfile.setCreatedAt(LocalDateTime.now());
+            return newProfile;
+        });
 
-        profile.setFullName(dto.getFullName());
-        profile.setPhone(dto.getPhone());
-        profile.setAddress(dto.getAddress());
-        profile.setAdditionalInfo(dto.getAdditionalInfo());
+        profile.setFullName(profileDto.getFullName());
+        profile.setPhone(profileDto.getPhone());
+        profile.setAddress(profileDto.getAddress());
+//        profile.setAdditionalInfo(profileDto.getAdditionalInfo());
+        profile.setUpdatedAt(LocalDateTime.now());
 
         profileRepository.save(profile);
 
-        return new UserResponseDto(user);
+        return new ProfileDto(user, profile);
     }
 }
