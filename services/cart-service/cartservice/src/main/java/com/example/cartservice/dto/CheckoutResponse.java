@@ -7,7 +7,7 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok. NoArgsConstructor;
+import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
@@ -17,7 +17,6 @@ public class CheckoutResponse {
     
     private String orderId;
     private Long userId;
-    private String userEmail;
     private String status;
     private List<OrderItemDetail> items;
     private BigDecimal totalAmount;
@@ -29,11 +28,10 @@ public class CheckoutResponse {
     @AllArgsConstructor
     @Builder
     public static class OrderItemDetail {
-        private Long menuItemId;
+        private Long itemId;       // was menuItemId
         private String itemName;
-        private BigDecimal price;
         private Integer quantity;
+        private BigDecimal unitPrice; // was price
         private BigDecimal subtotal;
-        private String note;
     }
 }

@@ -1,6 +1,5 @@
 package com.example.auth_service.Service.Impl;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,6 +8,7 @@ import com.example.auth_service.DTO.LoginRequestDto;
 import com.example.auth_service.DTO.RegisterRequestDto;
 import com.example.auth_service.DTO.TokenResponseDto;
 import com.example.auth_service.DTO.UserResponseDto;
+import com.example.auth_service.Entity.Profile;
 import com.example.auth_service.Entity.User;
 import com.example.auth_service.Repository.UserRepository;
 import com.example.auth_service.Security.JwtService;
@@ -20,18 +20,15 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final String jwtSecret;
 
     public AuthServiceImpl(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService,
-            @Value("${jwt.secret}") String jwtSecret
+            JwtService jwtService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
-        this.jwtSecret = jwtSecret;
     }
 
     @Transactional
@@ -44,8 +41,16 @@ public class AuthServiceImpl implements AuthService {
         User user = new User();
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setRole(dto.getRole());
-        user.setProvider(dto.getProvider());
+        user.setRole(dto.getRole() != null ? dto.getRole() : 1);
+        user.setProvider(dto.getProvider() != null ? dto.getProvider() : 1);
+
+        // Create profile
+        Profile profile = new Profile();
+        profile.setUser(user);
+        profile.setFullName(dto.getFullName());
+        profile.setPhone(dto.getPhone());
+        profile.setAddress(dto.getAddress());
+        user.setProfile(profile);
 
         userRepository.save(user);
         return new UserResponseDto(user);

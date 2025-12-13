@@ -1,13 +1,11 @@
-package com.example. cartservice.repository;
+package com.example.cartservice.repository;
 
 import com.example.cartservice.entity.OrderItem;
-import org.springframework. data.jpa. repository.JpaRepository;
-import org. springframework.stereotype.Repository;
 
-import java. util.Optional;
+import java.util.List;
 
-@Repository
-public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
-    
-    Optional<OrderItem> findByOrderIdAndMenuItemId(Long orderId, Long menuItemId);
+public interface OrderItemRepository {
+    OrderItem save(OrderItem item);
+    void delete(OrderItem item);
+    List<OrderItem> findByOrderId(String orderId);
 }
