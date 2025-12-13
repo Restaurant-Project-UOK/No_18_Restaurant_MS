@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.auth_service.DTO.LoginRequestDto;
+import com.example.auth_service.DTO.ProfileDto;
 import com.example.auth_service.DTO.RegisterRequestDto;
 import com.example.auth_service.DTO.TokenResponseDto;
-import com.example.auth_service.DTO.UserResponseDto;
 import com.example.auth_service.Service.AuthService;
 
 @RestController
@@ -24,9 +24,9 @@ public class AuthController {
     // Register new user
     @PostMapping("/register")
     @Transactional
-    public ResponseEntity<UserResponseDto> register(@RequestBody RegisterRequestDto dto) {
-        UserResponseDto user = authService.register(dto);
-        return ResponseEntity.ok(user);
+    public ResponseEntity<ProfileDto> register(@RequestBody RegisterRequestDto dto) {
+        ProfileDto profileDto = authService.register(dto);
+        return ResponseEntity.ok(profileDto);
     }
 
     // Login user (email + password)

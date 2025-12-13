@@ -1,9 +1,8 @@
 package com.example.auth_service.DTO;
 
-import java.time.LocalDateTime;
-
 import com.example.auth_service.Entity.Profile;
-
+import com.example.auth_service.Entity.User;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,28 +10,31 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ProfileDto {
 
-    private Integer id;           // same as user.id
-    private String email;         // from user entity
+    // User fields
+    private Integer id;
+    private String email;
+    private Integer role;
+    private Integer provider;
+
+    // Profile fields
     private String fullName;
     private String phone;
     private String address;
-    private String additionalInfo; // JSON as string
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
-    /** Mapping method from Profile entity */
-    public static ProfileDto fromEntity(Profile profile) {
-        return new ProfileDto(
-            profile.getUser().getId(),
-            profile.getUser().getEmail(),
-            profile.getFullName(),
-            profile.getPhone(),
-            profile.getAddress(),
-            profile.getAdditionalInfo(),
-            profile.getCreatedAt(),
-            profile.getUpdatedAt()
-        );
+    // Custom constructor to map from entities
+    public ProfileDto(User user, Profile profile) {
+        this.id = user.getId();
+        this.email = user.getEmail();
+        this.role = user.getRole();
+     //   this.provider = user.getProvider();
+
+        if (profile != null) {
+            this.fullName = profile.getFullName();
+            this.phone = profile.getPhone();
+            this.address = profile.getAddress();
+        }
     }
 }

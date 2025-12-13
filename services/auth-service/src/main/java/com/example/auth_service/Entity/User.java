@@ -15,42 +15,22 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "users")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
-
+@Entity
+@Table(name = "users")
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false, unique = true)
     private String email;
+    private String password;
+    private Integer provider;  // 1=LOCAL, 2=GOOGLE
+    private Integer role;      // 1=CUSTOMER, 2=ADMIN, 3=KITCHEN
 
-    @Column
-    private String password; // null if OAuth
-
-    @Column(nullable = false)
-    private Integer provider; // 1=LOCAL, 2=GOOGLE
-
-    @Column(nullable = false)
-    private Integer role; // 1=CUSTOMER, 2=ADMIN, 3=KITCHEN
-
-    @Column(nullable = false)
-    private Integer status = 1; // 1=ACTIVE, 0=INACTIVE
-
-    @Column
-    private LocalDateTime lastLogin;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
-
-    @Column
-    private LocalDateTime updatedAt = LocalDateTime.now();
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    // One-to-one mapping with Profile
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = false)
     private Profile profile;
 }

@@ -44,6 +44,6 @@ public class TokenServiceImpl implements TokenService {
         
 
 
-        return new TokenResponseDto(newAccessToken, newRefreshToken,  user);
+        return new TokenResponseDto(newAccessToken, newRefreshToken);
     }
 }
