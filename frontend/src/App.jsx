@@ -7,6 +7,7 @@ function App() {
   const token = localStorage.getItem("accessToken");
 
 
+export default function App() {
   return (
     <Router>
       <Routes>

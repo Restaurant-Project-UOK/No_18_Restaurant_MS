@@ -1,19 +1,34 @@
 package com.restaurant.menu_service.dto;
 
 import jakarta.validation.constraints.*;
+import com.restaurant.menu_service.validation.ValidObjectId;
+import lombok.Data;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
-public record ItemRequestDTO(
-    @NotBlank(message = "Item name cannot be blank")
-    @Size(max = 255)
-    String name,
-    String description,
-    @NotNull(message = "Price cannot be null")
-    @Positive(message = "Price must be a positive number")
-    BigDecimal price,
-    String imageId,
-    String dietary, 
-    @NotNull Boolean is_active
-) {
-    
+@Data
+public class ItemRequestDTO {
+    private String name;
+
+    private String description;
+
+    @NotNull(message = "price is required")
+    @DecimalMin(value = "0.01", inclusive = true, message = "price must be positive")
+    private BigDecimal price;
+
+    @ValidObjectId(message = "imageId must be a valid ObjectId")
+    private String imageId;
+
+    private Map<String, Object> dietaryInfo;
+
+    private Boolean available = true;
+
+    @ValidObjectId
+    private List<String> categoryIds;
+
+    @ValidObjectId
+    private List<String> modifierIds;
+
+    private String restaurantId;
 }
