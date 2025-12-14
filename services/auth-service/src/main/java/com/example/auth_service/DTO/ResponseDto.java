@@ -5,8 +5,8 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginRequestDto {
-    private String email;
-    private String password;
+public class ResponseDto {
+    private String accessToken;
+    private String refreshToken;
     private int tableId;
 }

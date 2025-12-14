@@ -1,33 +1,23 @@
-// src/api/auth.js
+import { fetchWithAuth } from "../utils/api";
 
-const BASE_URL = "http://localhost:8080/api/auth"; // matches @RequestMapping("/api/auth")
-
-// Register
-export async function register({ fullName, email, password, role = 1 }) {
-  const res = await fetch(`${BASE_URL}/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fullName, email, password, role }),
-  });
-  return res.json();
+export async function getProfile() {
+  return fetchWithAuth("profile/me", { method: "GET" });
 }
 
-// Login (email + password)
 export async function login({ email, password }) {
-  const res = await fetch(`${BASE_URL}/login`, {
+  const res = await fetchWithAuth("auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  return res.json();
+  return res;
 }
 
-// Google OAuth login
-export async function googleLogin({ email, token }) {
-  const res = await fetch(`${BASE_URL}/google-login`, {
+export async function register({ fullName, email, password, role }) {
+  const res = await fetchWithAuth("auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, token }),
+    body: JSON.stringify({ fullName, email, password, role }),
   });
-  return res.json();
+  return res;
 }
