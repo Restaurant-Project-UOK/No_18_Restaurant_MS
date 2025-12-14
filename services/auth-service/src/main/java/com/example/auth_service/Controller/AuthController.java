@@ -1,45 +1,54 @@
 package com.example.auth_service.Controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.auth_service.Security.JwtService;
+import lombok.Data;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.example.auth_service.DTO.LoginRequestDto;
-import com.example.auth_service.DTO.ProfileDto;
-import com.example.auth_service.DTO.RegisterRequestDto;
-import com.example.auth_service.DTO.TokenResponseDto;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+import com.example.auth_service.DTO.*;
 import com.example.auth_service.Service.AuthService;
 
+import java.util.Map;
+
+@Data
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private AuthService authService; // use @Autowired as you prefer
+    private final AuthService authService;
+    private final JwtService jwtService;
 
-    // Register new user
     @PostMapping("/register")
-    @Transactional
     public ResponseEntity<ProfileDto> register(@RequestBody RegisterRequestDto dto) {
-        ProfileDto profileDto = authService.register(dto);
+        ProfileDto profileDto =authService.register(dto);
+        System.out.println(profileDto);
         return ResponseEntity.ok(profileDto);
     }
 
-    // Login user (email + password)
     @PostMapping("/login")
-    public ResponseEntity<TokenResponseDto> login(@RequestBody LoginRequestDto dto) {
-        TokenResponseDto tokens = authService.login(dto);
-        return ResponseEntity.ok(tokens);
+    public ResponseEntity<ResponseDto> login(@RequestBody LoginRequestDto dto) {
+        return ResponseEntity.ok(authService.login(dto));
     }
 
-    // Google OAuth login
-    @PostMapping("/google-login")
-    public ResponseEntity<TokenResponseDto> googleLogin(@RequestBody LoginRequestDto dto) {
-        TokenResponseDto tokens = authService.googleLogin(dto);
-        return ResponseEntity.ok(tokens);
+    @PostMapping("/refresh")
+    public ResponseEntity<String> generateNewAccessToken(@RequestBody Map<String, String> request) {
+        String token = request.get("refreshToken");
+        return ResponseEntity.ok(jwtService.generateNewAccessToken(token));
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !auth.isAuthenticated()) {
+            return ResponseEntity.status(401).body("User not authenticated");
+        }
+
+        Integer userId = Integer.parseInt(auth.getName());
+        authService.logoutUser(userId);
+
+        return ResponseEntity.ok("Logged out successfully");
+    }
+
 }

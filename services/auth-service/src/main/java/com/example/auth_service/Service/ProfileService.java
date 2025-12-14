@@ -4,5 +4,5 @@ import com.example.auth_service.DTO.ProfileDto;
 
 public interface ProfileService {
     ProfileDto getProfile(Integer userId);
-    ProfileDto updateProfile(Integer userId, ProfileDto dto);
+    ProfileDto updateProfile(Integer userId, ProfileDto profileDto);
 }
