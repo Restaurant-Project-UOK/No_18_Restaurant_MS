@@ -5,7 +5,8 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class TokenResponseDto {
+public class ResponseDto {
     private String accessToken;
     private String refreshToken;
+    private int tableId;
 }

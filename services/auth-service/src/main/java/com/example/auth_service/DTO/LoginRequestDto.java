@@ -1,14 +1,12 @@
 package com.example.auth_service.DTO;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-
 public class LoginRequestDto {
     private String email;
-    private String password; // null if Google OAuth
+    private String password;
+    private int tableId;
 }

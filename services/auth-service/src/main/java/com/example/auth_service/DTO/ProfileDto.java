@@ -2,34 +2,26 @@ package com.example.auth_service.DTO;
 
 import com.example.auth_service.Entity.Profile;
 import com.example.auth_service.Entity.User;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ProfileDto {
-
-    // User fields
     private Integer id;
     private String email;
     private Integer role;
     private Integer provider;
 
-    // Profile fields
     private String fullName;
     private String phone;
     private String address;
 
-    // Custom constructor to map from entities
     public ProfileDto(User user, Profile profile) {
         this.id = user.getId();
         this.email = user.getEmail();
         this.role = user.getRole();
-     //   this.provider = user.getProvider();
+        this.provider = user.getProvider();
 
         if (profile != null) {
             this.fullName = profile.getFullName();

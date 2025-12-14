@@ -1,24 +1,26 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Profile from "./pages/Profile";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { TableProvider } from "./context/TableContext";
 
-function App() {
-  const token = localStorage.getItem("accessToken");
-
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import Profile from "./pages/auth/Profile";
+import TableSelection from "./pages/TableSelection";
+import Menu from "./pages/menu/Menu";
+import Order from "./pages/order/Order";
 
 export default function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={token ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
-      </Routes>
+      <TableProvider>
+        <Routes>
+          <Route path="/" element={<TableSelection />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/menu" element={<Menu />} />
+          <Route path="/order" element={<Order />} />
+        </Routes>
+      </TableProvider>
     </Router>
   );
-
 }
-
-export default App;
