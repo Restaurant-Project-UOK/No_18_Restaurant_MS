@@ -1,9 +1,6 @@
 package com.example.cartservice.controller;
 
-import com.example.cartservice.dto.AddToCartRequest;
-import com.example.cartservice.dto.CartResponse;
-import com.example.cartservice.dto.CheckoutResponse;
-import com.example.cartservice.dto.UpdateCartItemRequest;
+import com.example.cartservice.dto.*;
 import com.example.cartservice.service.CartService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/cart")
@@ -59,15 +58,7 @@ public class CartController {
         CartResponse response = cartService.openCart(userId, tableName);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
-    
-    @GetMapping
-    public ResponseEntity<CartResponse> getCart(Authentication authentication,
-                                                @RequestHeader(value = "X-Table-Name", required = false) String tableName,
-                                                @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
-        Long userId = resolveUserId(authentication, userIdHeader);
 
-        return ResponseEntity.ok(cartService.getCart(userId, tableName));
-    }
     
     @GetMapping("/items")
     public ResponseEntity<List<CartResponse.CartItemResponse>> getCartItems(Authentication authentication,
@@ -137,5 +128,25 @@ public class CartController {
         Long userId = resolveUserId(authentication, userIdHeader);
 
         return ResponseEntity.ok(cartService.checkout(userId, tableName));
+    }
+    @GetMapping
+    public ResponseEntity<ItemsResponse> getItemsForOrder(
+            Authentication authentication,
+            @RequestHeader(value = "X-Table-Name", required = false) String tableName,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader)  {
+
+        Long userId = resolveUserId(authentication, userIdHeader);
+        CartResponse cart = cartService.getCart(userId, tableName);
+
+        List<ItemForOrder> items = cart.getItems().stream()
+                .map(i -> ItemForOrder.builder()
+                        .itemId(i.getMenuItemId())
+                        .itemName(i.getItemName())
+                        .quantity(i.getQuantity())
+                        .unitPrice(i.getPrice())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(new ItemsResponse(items));
     }
 }
