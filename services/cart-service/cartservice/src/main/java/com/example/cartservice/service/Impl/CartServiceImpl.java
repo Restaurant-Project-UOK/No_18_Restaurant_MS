@@ -8,6 +8,8 @@ import com.example.cartservice.model.RedisCart;
 import com.example.cartservice.service.CartService;
 import com.example.cartservice.service.store.CartStore;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +25,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class CartServiceImpl implements CartService {
+
+    private static final Logger log = LoggerFactory.getLogger(CartServiceImpl.class);
 
     private final CartStore cartStore;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -161,7 +165,7 @@ public class CartServiceImpl implements CartService {
     public CheckoutResponse checkout(Long userId, String tableName) {
         String key = cartKey(userId, tableName);
         RedisCart cart = cartStore.load(key);
-        if (cart == null || cart.getItems().isEmpty()) throw new RuntimeException("Cart is empty");
+        if (cart == null || cart.getItems() == null || cart.getItems().isEmpty()) throw new RuntimeException("Cart is empty");
 
         // Build items array for order service: [{itemId, itemName, quantity, unitPrice}, ...]
         var itemsArray = cart.getItems().stream().map(i -> {
@@ -175,13 +179,33 @@ public class CartServiceImpl implements CartService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        // send user id and table id in headers as requested
+        // send user id and table name in headers as requested
         headers.set("X-User-Id", String.valueOf(userId));
-        headers.set("X-Table-Id", tableName != null ? tableName : "default");
+        headers.set("X-Table-Name", tableName != null ? tableName : "default");
 
-        HttpEntity<Object> entity = new HttpEntity<>(itemsArray, headers);
+        var payload = new java.util.HashMap<String, Object>();
+        payload.put("items", itemsArray);
 
-        ResponseEntity<String> resp = restTemplate.postForEntity(orderServiceUrl, entity, String.class);
+        HttpEntity<Object> entity = new HttpEntity<>(payload, headers);
+
+        // Normalize orderServiceUrl: robustly locate the real URL by finding the first "http" occurrence
+        String originalUrl = orderServiceUrl != null ? orderServiceUrl : "";
+        String targetUrl = originalUrl.trim();
+        int httpIndex = targetUrl.toLowerCase().indexOf("http");
+        if (httpIndex > 0) {
+            // strip any leading token like "post ", "post", etc. (handles "post http://" and "posthttp://")
+            targetUrl = targetUrl.substring(httpIndex).trim();
+        }
+
+        log.debug("Original order.service.url='{}' -> normalized='{}'", originalUrl, targetUrl);
+
+        if (!(targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
+            throw new RuntimeException("Invalid order service URL: '" + originalUrl + "'. It must contain an absolute URL starting with http:// or https://");
+        }
+
+        log.debug("Sending order to order-service at URL='{}' userId='{}' table='{}' payloadItemsCount={}", targetUrl, userId, tableName, itemsArray.size());
+
+        ResponseEntity<String> resp = restTemplate.postForEntity(targetUrl, entity, String.class);
 
         // if success, delete cart from store
         if (resp.getStatusCode().is2xxSuccessful()) {
