@@ -29,8 +29,14 @@ public class OrderController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-Table-Id") Long tableId,
             @RequestHeader("Authorization") String authorization,
-            @Valid @RequestBody CreateOrderRequest request) {
+            @RequestBody(required = false) CreateOrderRequest request) {
         logger.info("POST /api/orders - Creating order for userId: {}, tableId: {}", userId, tableId);
+
+        // Create request object if not provided (body is optional)
+        if (request == null) {
+            request = new CreateOrderRequest();
+        }
+
         request.setUserId(userId);
         request.setTableId(tableId);
         OrderResponse response = orderService.createOrder(request, authorization);

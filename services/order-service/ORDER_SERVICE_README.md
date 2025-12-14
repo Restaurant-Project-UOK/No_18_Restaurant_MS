@@ -101,20 +101,23 @@ Any invalid transition throws `BadRequestException`.
 ### 1️⃣ Create Order
 **POST** `/api/orders`
 
-**Request Body:**
-```json
-{
-  "tableId": 5,
-  "userId": 42,
-  "items": [
-    {
-      "itemId": 10,
-      "itemName": "Chicken Pizza",
-      "quantity": 2,
-      "unitPrice": 1200
-    }
-  ]
-}
+**Headers Required:**
+- `X-User-Id`: User ID (provided by API Gateway from JWT)
+- `X-Table-Id`: Table ID (provided by API Gateway from JWT)
+- `Authorization`: Bearer token
+
+**Request Body:** ⚠️ **OPTIONAL** (can be empty `{}` or omitted entirely)
+
+The order items are fetched from the Cart Service automatically. `userId` and `tableId` come from request headers.
+
+**Example Request (No Body):**
+```http
+POST /api/orders
+Authorization: Bearer eyJhbGc...
+X-User-Id: 42
+X-Table-Id: 5
+
+(empty body or {})
 ```
 
 **Response:** `201 CREATED`
