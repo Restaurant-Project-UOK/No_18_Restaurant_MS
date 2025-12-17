@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
-        String accessToken = jwtService.generateAccessToken(user);
+        String accessToken = jwtService.generateAccessToken(user,tableId);
         String refreshToken = jwtService.generateRefreshToken(user);
 
         UserActivity activity = new UserActivity();

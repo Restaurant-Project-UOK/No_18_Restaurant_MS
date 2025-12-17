@@ -4,7 +4,7 @@ const BASE_URL = import.meta.env.VITE_BASE_URL.endsWith("/")
   ? import.meta.env.VITE_BASE_URL
   : import.meta.env.VITE_BASE_URL + "/";
 
-async function refreshAccessToken() {
+async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
 
@@ -25,9 +25,9 @@ async function refreshAccessToken() {
   }
 }
 
-export async function fetchWithAuth(endpoint, options = {}) {
+export async function fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<any> {
   if (!options.headers) options.headers = {};
-  options.headers["Authorization"] = `Bearer ${getAccessToken()}`;
+  (options.headers as Record<string, string>)["Authorization"] = `Bearer ${getAccessToken()}`;
 
   let res = await fetch(`${BASE_URL}${endpoint}`, options);
 
@@ -38,7 +38,7 @@ export async function fetchWithAuth(endpoint, options = {}) {
       window.location.href = "/login";
       return;
     }
-    options.headers["Authorization"] = `Bearer ${getAccessToken()}`;
+    (options.headers as Record<string, string>)["Authorization"] = `Bearer ${getAccessToken()}`;
     res = await fetch(`${BASE_URL}${endpoint}`, options);
   }
 
