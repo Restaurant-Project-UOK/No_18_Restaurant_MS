@@ -51,3 +51,15 @@ CREATE TABLE promotions (
 );
 
 INSERT INTO restaurants (name) VALUES ('The Golden Spoon');
+
+USE restaurant_db;
+
+-- Insert categories
+INSERT INTO categories (id, restaurant_id, name, sort_order) VALUES
+(1, 1, 'Appetizers', 1),
+(2, 1, 'Main Course', 2),
+(3, 1, 'Desserts', 3),
+(4, 1, 'Beverages', 4);
+
+-- Verify
+SELECT * FROM categories;
