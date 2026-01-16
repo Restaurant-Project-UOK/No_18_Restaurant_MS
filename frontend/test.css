@@ -1,0 +1,11 @@
+body { 
+  background-color: #f4f6f9; 
+} 
+.list-group-item.active { 
+  background-color: #198754 !important;   
+  border-color: #198754 !important; 
+} 
+
+.card-title small {   
+  font-size: 0.75rem; 
+} 
