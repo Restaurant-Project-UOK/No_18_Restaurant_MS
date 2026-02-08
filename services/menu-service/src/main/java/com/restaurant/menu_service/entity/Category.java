@@ -1,23 +1,36 @@
 package com.restaurant.menu_service.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "categories")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Category {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false)
+    @Column(nullable = false, length = 100)
     private String name;
 
     @Column(name = "sort_order")
-    private int sortOrder;
+    @Builder.Default
+    private Integer sortOrder = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "restaurant_id", nullable = false)
-    private Restaurant restaurant;
+    @ManyToMany(mappedBy = "categories")
+    @JsonIgnore
+    @Builder.Default
+    private Set<MenuItem> menuItems = new HashSet<>();
+
 }
+
