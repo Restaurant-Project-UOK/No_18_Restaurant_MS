@@ -2,6 +2,8 @@ name: Sync Auth Service to Hugging Face
 on:
   push:
     branches: [dev_ishanka]
+    paths:
+      - 'services/auth-service/**'
   workflow_dispatch:
 
 jobs:
