@@ -64,7 +64,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String accessToken = jwtService.generateAccessToken(user,tableId);
-        String refreshToken = jwtService.generateRefreshToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user,tableId);
 
         UserActivity activity = new UserActivity();
         activity.setUser(user);

@@ -87,8 +87,9 @@ public class JwtService {
                 .getBody();
 
         Integer userId = Integer.parseInt(claims.getSubject());
+        Integer tableId = (Integer) claims.get("tableId");
         User user = (userRepository.findById(userId)).orElse(null);
-        String token = generateAccessToken(Objects.requireNonNull(user));
+        String token = generateAccessToken(user,tableId);
         System.out.println(token);
         return token;
     }
