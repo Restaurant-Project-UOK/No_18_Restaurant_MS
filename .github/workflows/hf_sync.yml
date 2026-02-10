@@ -15,4 +15,10 @@ jobs:
       - name: Push Auth Service folder to HF
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git subtree push --prefix services/auth-service https://ishanka1102:$HF_TOKEN@huggingface.co/spaces/ishanka1102/auth_service main
+        #run: git subtree push --prefix services/auth-service https://ishanka1102:$HF_TOKEN@huggingface.co/spaces/ishanka1102/auth_service main
+        run: |
+          # 1. Split the subtree into a temporary local branch named 'deploy'
+          git subtree split --prefix services/auth-service -b deploy
+          
+          # 2. Force push that temporary branch to the HF main branch
+          git push https://ishanka1102:$HF_TOKEN@huggingface.co/spaces/ishanka1102/auth_service deploy:main --force
