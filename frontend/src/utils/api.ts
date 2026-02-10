@@ -46,6 +46,6 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || `Error ${res.status}`);
   }
-
+  
   return res.json();
 }

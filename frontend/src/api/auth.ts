@@ -5,13 +5,6 @@ interface LoginPayload {
   password: string;
 }
 
-interface RegisterPayload {
-  fullName: string;
-  email: string;
-  password: string;
-  role: number;
-}
-
 export async function getProfile(): Promise<any> {
   return fetchWithAuth("profile/me", { method: "GET" });
 }
@@ -40,4 +33,15 @@ export async function register(payload: RegisterPayload): Promise<any> {
     body: JSON.stringify(payload),
   });
   return res;
+}
+
+
+// frontend/src/api/auth.ts
+interface RegisterPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  role: number;     // 1=CUSTOMER, 2=ADMIN, 3=KITCHEN
+  provider?: number; // 1=LOCAL, 2=GOOGLE (optional, defaults to 1 in backend)
+  phone?: string;    // Added to match DTO
 }

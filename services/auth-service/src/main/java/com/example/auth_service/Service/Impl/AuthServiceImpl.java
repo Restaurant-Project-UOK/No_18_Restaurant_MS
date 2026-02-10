@@ -44,7 +44,7 @@ public class AuthServiceImpl implements AuthService {
         profile.setUser(savedUser);
         profile.setFullName(dto.getFullName());
         profile.setPhone(dto.getPhone());
-        profile.setAddress(dto.getAddress());
+//        profile.setAddress(dto.getAddress());
         profileRepository.save(profile);
 
         return new ProfileDto(savedUser, profile);

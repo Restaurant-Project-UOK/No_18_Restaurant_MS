@@ -13,8 +13,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { tableId: contextTableId } = useTable();
-  const [tableId] = useState(contextTableId);
+  // const { tableId: contextTableId } = useTable();
+  const { tableId } = useTable();
 
   // Get tableId from location state, URL params, or localStorage
   // useEffect(() => {
@@ -43,7 +43,13 @@ export default function Login() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const res = await login({ email, password });
+            const payload = { 
+        email, 
+        password,
+        tableId // Pass tableId to backend for session association
+      };
+
+      const res = await login(payload);
       if (res.accessToken && res.refreshToken) {
         localStorage.setItem("accessToken", res.accessToken);
         localStorage.setItem("refreshToken", res.refreshToken);

@@ -28,7 +28,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Profile profile = profileRepository.findById(userId).orElse(null);
         ProfileDto dto = new ProfileDto(user, profile);
-        dto.setProvider(null); // hide provider if not needed
+        //dto.setProvider(null); // hide provider if not needed
         return dto;
     }
 

@@ -59,7 +59,9 @@ public class SecurityConfig {
 
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:5005",  // frontend
-                "http://172.20.*.*:5005"  // LAN access
+                "http://172.20.*.*:5005", // LAN access
+                "http://192.168.*.*:5005"
+
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
