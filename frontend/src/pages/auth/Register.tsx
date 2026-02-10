@@ -36,7 +36,7 @@ export default function Register() {
       
       // If the request is successful, the backend returns the ProfileDto
       if (res) {
-        navigate("/", { state: { tableId } });
+        navigate(`/?tableId=${tableId}`);
       }
     } catch (err: any) {
       // fetchWithAuth throws an Error if res.ok is false
@@ -75,10 +75,21 @@ export default function Register() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
-        
+
         <p className="table-id">Current Table ID: {tableId}</p>
         <button type="submit">Register</button>
       </form>
+      <div className="register-link">
+        <p>
+          Already have an account?{" "}
+          <button
+            type="button"
+            onClick={() => navigate(`/?tableId=${tableId}`)}
+          >
+            Login here
+          </button>
+        </p>
+      </div>
     </div>
   );
 }

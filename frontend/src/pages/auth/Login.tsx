@@ -13,7 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  // const { tableId: contextTableId } = useTable();
+  //const { tableId: contextTableId } = useTable();
   const { tableId } = useTable();
 
   // Get tableId from location state, URL params, or localStorage
@@ -89,7 +89,7 @@ export default function Login() {
           Don't have an account?{" "}
           <button
             type="button"
-            onClick={() => navigate("/register", { state: { tableId } })}
+            onClick={() => navigate(`/register?tableId=${tableId}`)}
           >
             Register here
           </button>
