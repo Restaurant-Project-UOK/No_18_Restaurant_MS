@@ -58,10 +58,10 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOriginPatterns(List.of(
-                "http://localhost:5173",  // frontend
-                "http://172.20.*.*:5173", // LAN access
-                "http://192.168.*.*:5173",
-                "http://localhost:5173",
+                "http://localhost:5005",  // frontend
+                "http://172.20.*.*:5005", // LAN access
+                "http://192.168.*.*:5005",
+                "http://localhost:5005",
                 "https://*.onrender.com",  // Allow Render domains
                 "https://*.railway.app"
 
