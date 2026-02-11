@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for menu-service (Spring Boot, Java 17)
 # Builder: use Maven to produce the executable jar
-FROM maven:3.8.8-jdk-17 AS builder
+FROM maven:3.8.8-openjdk-17 AS builder
 WORKDIR /workspace
 COPY . ./
 RUN chmod +x mvnw || true
