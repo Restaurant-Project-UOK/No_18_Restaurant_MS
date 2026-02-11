@@ -4,8 +4,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 
 # LangChain Imports 
-from langchain_community.chat_models import AzureChatOpenAI
-from langchain_openai import AzureOpenAIEmbeddings
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain.schema import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -13,7 +12,7 @@ from langchain.tools import Tool
 from langchain import hub
 from langchain.agents import create_react_agent, AgentExecutor
 from langchain.memory import ConversationBufferMemory
-from langchain.agents import load_tools
+from langchain_community.agent_toolkits.load_tools import load_tools
 
 
 # Load Environment Variables
@@ -23,13 +22,26 @@ load_dotenv()
 AZURE_API_KEY = os.getenv("AZURE_API_KEY")
 AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
 AZURE_DEPLOYMENT = os.getenv("AZURE_DEPLOYMENT")
-AZURE_API_VERSION = os.getenv("AZURE_API_VERSION")
+AZURE_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_EMBEDDING_DEPLOYMENT")
+# Handle potential version splitting in .env
+AZURE_API_VERSION = os.getenv("AZURE_API_VERSION") or os.getenv("AZURE_API_VERSION_1")
 MONGO_URI = os.getenv("MONGO_URI")
 
 if not all([AZURE_API_KEY, AZURE_ENDPOINT, AZURE_DEPLOYMENT, AZURE_API_VERSION]):
-    raise EnvironmentError("Missing one or more Azure environment variables!")
+    print(f"DEBUG: API_KEY={'Set' if AZURE_API_KEY else 'MISSING'}")
+    print(f"DEBUG: ENDPOINT={'Set' if AZURE_ENDPOINT else 'MISSING'}")
+    print(f"DEBUG: DEPLOYMENT={'Set' if AZURE_DEPLOYMENT else 'MISSING'}")
+    print(f"DEBUG: VERSION={'Set' if AZURE_API_VERSION else 'MISSING'}")
+    raise EnvironmentError("Missing one or more Azure environment variables! Check your .env file.")
 
 #Initialize Azure OpenAI
+print(f"--- AZURE CONFIG READ ---")
+print(f"Chat Deployment: {AZURE_DEPLOYMENT}")
+print(f"Embedding Deployment: {AZURE_EMBEDDING_DEPLOYMENT}")
+print(f"API Version: {AZURE_API_VERSION}")
+print(f"Endpoint: {AZURE_ENDPOINT}")
+print(f"-------------------------")
+
 llm = AzureChatOpenAI(
     azure_deployment=AZURE_DEPLOYMENT,
     api_key=AZURE_API_KEY,
@@ -39,7 +51,7 @@ llm = AzureChatOpenAI(
 )
 
 embeddings = AzureOpenAIEmbeddings(
-    model="text-embedding-3-large",
+    azure_deployment=AZURE_EMBEDDING_DEPLOYMENT or "text-embedding-3-large",
     azure_endpoint=AZURE_ENDPOINT,
     api_key=AZURE_API_KEY,
     openai_api_version=AZURE_API_VERSION,
@@ -60,39 +72,53 @@ def load_mongo_documents():
     docs = []
 
     for row in rows:
-        name = row.get("name", "")
-        description = row.get("description", "")
-        price = row.get("price", "")
-        category = row.get("category", "")
-
-        if not description.strip():
-            continue
+        name = row.get("name", "Unknown Item")
+        # Use description if available, otherwise use a placeholder or empty string
+        description = row.get("description") or "No description available."
+        price = row.get("price", "Price not specified")
+        
+        # Check for our new category_list field, or fall back to old category field
+        category = row.get("category_list") or row.get("category") or "General"
 
         text = f"Name: {name}\nDescription: {description}\nPrice: {price}\nCategory: {category}"
-        metadata = {k: v for k, v in row.items() if k != "_id"}
+        
+        # Filter metadata to include only primitive types (str, int, float, bool) for Chroma compatibility
+        metadata = {
+            k: v for k, v in row.items() 
+            if isinstance(v, (str, int, float, bool)) and k != "_id"
+        }
         docs.append(Document(page_content=text, metadata=metadata))
 
     print(f" Loaded {len(docs)} documents from MongoDB.")
     return docs
 
 
-docs = load_mongo_documents()
-if not docs:
-    raise ValueError("No documents found in MongoDB!")
+def initialize_vectorstore():
+    global vectorstore, retriever
+    docs = load_mongo_documents()
+    if not docs:
+        print("No documents found in MongoDB to index.")
+        return None
+    
+    # Improved splitting: larger chunks for better context preservation
+    splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=30)
+    chunks = splitter.split_documents(docs)
 
+    vectorstore = Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings,
+        persist_directory="chroma_db"
+    )
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 5}) # Retrieve more context
+    return vectorstore
 
-# Chunk and Embed
+# Initial load
+initialize_vectorstore()
 
-splitter = RecursiveCharacterTextSplitter(chunk_size=150, chunk_overlap=20)
-chunks = splitter.split_documents(docs)
-
-vectorstore = Chroma.from_documents(
-    documents=chunks,
-    embedding=embeddings,
-    persist_directory="chroma_db"
-)
-vectorstore.persist()
-retriever = vectorstore.as_retriever()
+def reload_vector_store():
+    """Trigger a reload of the vector store from updated MongoDB data."""
+    print("Reloading vector store...")
+    return initialize_vectorstore()
 
 # RAG Tool
 def rag_tool_func(query: str) -> str:
@@ -105,10 +131,16 @@ rag_tool = Tool(
     description="Searches internal menu knowledge base for restaurant items."
 )
 
-# Weather Tool
-os.environ["OPENWEATHERMAP_API_KEY"] = os.getenv("OPENWEATHERMAP_API_KEY", "")
-weather_tools = load_tools(["openweathermap-api"], llm=llm)
-weather_tool = weather_tools[0] if weather_tools else None
+# Weather Tool (Optional)
+weather_api_key = os.getenv("OPENWEATHERMAP_API_KEY")
+weather_tool = None
+if weather_api_key:
+    os.environ["OPENWEATHERMAP_API_KEY"] = weather_api_key
+    try:
+        weather_tools = load_tools(["openweathermap-api"], llm=llm)
+        weather_tool = weather_tools[0] if weather_tools else None
+    except Exception as e:
+        print(f"Warning: Failed to load weather tool: {e}")
 
 # Build Agent
 react_prompt = hub.pull("hwchase17/react")

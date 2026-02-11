@@ -1,15 +1,36 @@
 package com.restaurant.menu_service.entity;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import lombok.*;
 
-@Document("categories")
-@Data
+import java.util.HashSet;
+import java.util.Set;
+
+@Entity
+@Table(name = "categories")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Category {
+
     @Id
-    private String id;
-    private String restaurantId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 100)
     private String name;
+
+    @Column(name = "sort_order")
+    @Builder.Default
     private Integer sortOrder = 0;
+
+    @ManyToMany(mappedBy = "categories")
+    @JsonIgnore
+    @Builder.Default
+    private Set<MenuItem> menuItems = new HashSet<>();
+
 }
+
