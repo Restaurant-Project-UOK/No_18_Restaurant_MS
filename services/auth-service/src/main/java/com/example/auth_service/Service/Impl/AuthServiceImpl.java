@@ -1,91 +1,90 @@
 package com.example.auth_service.Service.Impl;
 
-import lombok.Data;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.auth_service.DTO.*;
-import com.example.auth_service.Entity.*;
-import com.example.auth_service.Repository.*;
+import com.example.auth_service.DTO.LoginRequestDto;
+import com.example.auth_service.DTO.RegisterRequestDto;
+import com.example.auth_service.DTO.TokenResponseDto;
+import com.example.auth_service.DTO.UserResponseDto;
+import com.example.auth_service.Entity.Profile;
+import com.example.auth_service.Entity.User;
+import com.example.auth_service.Repository.UserRepository;
 import com.example.auth_service.Security.JwtService;
 import com.example.auth_service.Service.AuthService;
-import com.example.auth_service.Exception.*;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.time.LocalDateTime;
-
-@Data
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
-    private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final UserActivityRepository userActivityRepository;
+
+    public AuthServiceImpl(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
+    ) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
 
     @Transactional
     @Override
-    public ProfileDto register(RegisterRequestDto dto) {
+    public UserResponseDto register(RegisterRequestDto dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new UserAlreadyExistsException("Email already in use");
+            throw new RuntimeException("Email already in use");
         }
 
         User user = new User();
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setRole(dto.getRole());
-        user.setProvider(dto.getProvider() == null ? 1 : dto.getProvider());
+        user.setRole(dto.getRole() != null ? dto.getRole() : 1);
+        user.setProvider(dto.getProvider() != null ? dto.getProvider() : 1);
 
-        User savedUser = userRepository.save(user);
-
+        // Create profile
         Profile profile = new Profile();
-        profile.setUser(savedUser);
+        profile.setUser(user);
         profile.setFullName(dto.getFullName());
         profile.setPhone(dto.getPhone());
         profile.setAddress(dto.getAddress());
-        profileRepository.save(profile);
+        user.setProfile(profile);
 
-        return new ProfileDto(savedUser, profile);
+        userRepository.save(user);
+        return new UserResponseDto(user);
     }
 
-    @Transactional
     @Override
-    public ResponseDto login(LoginRequestDto dto) {
-
-
-        int tableId = dto.getTableId();
+    public TokenResponseDto login(LoginRequestDto dto) {
         User user = userRepository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            throw new InvalidCredentialsException("Invalid email or password");
+            throw new RuntimeException("Invalid password");
         }
 
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        UserActivity activity = new UserActivity();
-        activity.setUser(user);
-        activity.setTableNo(tableId);
-        activity.setLoginAt(LocalDateTime.now());
-        userActivityRepository.save(activity);
-
-        return new ResponseDto(accessToken, refreshToken,tableId);
+        return new TokenResponseDto(accessToken, refreshToken, 15 * 60, 7 * 24 * 60 * 60, user);
     }
 
-    @Transactional
-    public void logoutUser(Integer userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    @Override
+    public TokenResponseDto googleLogin(LoginRequestDto dto) {
+        User user = userRepository.findByEmail(dto.getEmail())
+                .orElseGet(() -> {
+                    User newUser = new User();
+                    newUser.setEmail(dto.getEmail());
+                    newUser.setProvider(2); // GOOGLE
+                    newUser.setRole(1); // CUSTOMER default
+                    return userRepository.save(newUser);
+                });
 
-        UserActivity activity = userActivityRepository
-                .findTopByUserAndLogoutAtIsNullOrderByLoginAtDesc(user);
+        String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
 
-        if (activity != null) {
-            activity.setLogoutAt(LocalDateTime.now());
-            userActivityRepository.save(activity);
-        }
+        return new TokenResponseDto(accessToken, refreshToken, 15 * 60, 7 * 24 * 60 * 60, user);
     }
 }

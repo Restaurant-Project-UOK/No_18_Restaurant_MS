@@ -58,8 +58,13 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOriginPatterns(List.of(
-                "http://localhost:5005",  // frontend
-                "http://172.20.*.*:5005"  // LAN access
+                // "http://localhost:5005",  // frontend
+                // "http://172.20.*.*:5005", // LAN access
+                // "http://192.168.*.*:5005",
+                 "http://localhost:5005",
+                // "https://*.onrender.com",  // Allow Render domains
+                "https://*.vercel.app"
+
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

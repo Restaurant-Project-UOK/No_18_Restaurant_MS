@@ -1,0 +1,82 @@
+.auth-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+}
+
+.auth-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-container input,
+.auth-container button {
+  padding: 10px;
+}
+
+.auth-container button {
+  cursor: pointer;
+}
+
+.auth-container .error-message {
+  color: red;
+}
+
+.auth-container .table-id {
+  padding: 10px;
+}
+
+.auth-container .register-link button {
+  background: none;
+  border: none;
+  color: blue;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.profile-container {
+  max-width: 500px;
+  margin: 50px auto;
+  padding: 20px;
+}
+
+.profile-container p {
+  margin: 10px 0;
+}
+
+.profile-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-container input {
+  padding: 10px;
+}
+
+.profile-container .button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.profile-container .button-group button {
+  padding: 10px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.edit-button,
+.save-button,
+.cancel-button {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.success-message {
+  color: green;
+}
+
+.error-message {
+  color: red;
+}

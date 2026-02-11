@@ -29,11 +29,11 @@ public class JwtService {
     @Autowired
     private UserRepository userRepository;
     /** Generate Access Token */
-    public String generateAccessToken(User user) {
+    public String generateAccessToken(User user,int tableId) {
         return Jwts.builder()
                 .setSubject(user.getId().toString())
-                .claim("email", user.getEmail())
                 .claim("role", user.getRole())
+                .claim("tableId",tableId)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpirationMs))
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
@@ -41,9 +41,10 @@ public class JwtService {
     }
 
     /** Generate Refresh Token */
-    public String generateRefreshToken(User user) {
+    public String generateRefreshToken(User user, int tableId) {
         return Jwts.builder()
                 .setSubject(user.getId().toString())
+                .claim("tableId", tableId )
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + refreshTokenExpirationMs))
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
@@ -86,37 +87,36 @@ public class JwtService {
                 .getBody();
 
         Integer userId = Integer.parseInt(claims.getSubject());
+        Integer tableId = (Integer) claims.get("tableId");
         User user = (userRepository.findById(userId)).orElse(null);
-        String token = generateAccessToken(Objects.requireNonNull(user));
+        String token = generateAccessToken(user,tableId);
         System.out.println(token);
         return token;
     }
 
 
     /** Extract User ID from JWT */
+    private Claims getClaimsFromToken(String token) {
+        return Jwts.parser()
+                .setSigningKey(jwtSecret)
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
     public Integer getUserIdFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(jwtSecret)
-                .parseClaimsJws(token)
-                .getBody();
-        return Integer.parseInt(claims.getSubject());
+        return Integer.parseInt(getClaimsFromToken(token).getSubject());
     }
 
-    /** Optional: Extract Email from JWT */
     public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(jwtSecret)
-                .parseClaimsJws(token)
-                .getBody();
-        return (String) claims.get("email");
+        return (String) getClaimsFromToken(token).get("email");
     }
 
-    /** Optional: Extract Role from JWT */
     public Integer getRoleFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(jwtSecret)
-                .parseClaimsJws(token)
-                .getBody();
-        return (Integer) claims.get("role");
+        return (Integer) getClaimsFromToken(token).get("role");
     }
+
+    public Integer getTableIdFromToken(String token) {
+        return (Integer) getClaimsFromToken(token).get("tableId");
+    }
+
 }

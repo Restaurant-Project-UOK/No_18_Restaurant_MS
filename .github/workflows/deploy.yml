@@ -1,0 +1,37 @@
+name: Deploy ChatBot to Azure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'services/ai-service/ChatBot/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to ACR
+        run: |
+          az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and Push Image
+          # Assuming the root of the repo is the context, but Dockerfile is deep.
+          # We use the repo root as context and point to the Dockerfile.
+        run: |
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/chatbot:${{ github.sha }} -f services/ai-service/ChatBot/Dockerfile .
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/chatbot:${{ github.sha }}
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ secrets.RESOURCE_GROUP }}
+          containerAppName: chatbot-service
+          imageToDeploy: ${{ secrets.ACR_NAME }}.azurecr.io/chatbot:${{ github.sha }}
