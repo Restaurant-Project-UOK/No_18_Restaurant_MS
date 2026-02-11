@@ -61,7 +61,7 @@ public class SecurityConfig {
                 // "http://localhost:5005",  // frontend
                 // "http://172.20.*.*:5005", // LAN access
                 // "http://192.168.*.*:5005",
-                // "http://localhost:5005",
+                 "http://localhost:5005",
                 // "https://*.onrender.com",  // Allow Render domains
                 "https://*.vercel.app"
 
