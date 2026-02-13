@@ -101,7 +101,7 @@ jwt:
 
 # Public paths that don't require JWT (comma-separated)
 gateway:
-  public-paths: /api/auth/**,/api/categories/**,/api/menu/**,/api/media/**
+  public-paths: /api/auth/**,/api/categories/**,/api/menu/**,/api/media/**,/api/orders/active
 
 # Logging
 logging:

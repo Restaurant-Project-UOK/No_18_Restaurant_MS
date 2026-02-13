@@ -3,9 +3,9 @@ spring:
     name: order-service
 
   datasource:
-    url: jdbc:mysql://localhost:3306/orderdb?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
-    username: root
-    password: orderservice@12345
+    url: jdbc:mysql://fullstack-mysql-server.mysql.database.azure.com:3306/orderdb?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true&serverTimezone=UTC
+    username: nidula
+    password: springboot@inteli020
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
