@@ -1,3 +1,12 @@
+export interface Order {
+  id: number;
+  orderId: string;
+  items: { name: string; quantity: number; menuItemId?: number }[];
+  tableId?: number | string;
+  status?: string;
+  createdAt?: string | Date;
+}
+
 interface OrderPayload {
   items: string[];
   tableId: number;

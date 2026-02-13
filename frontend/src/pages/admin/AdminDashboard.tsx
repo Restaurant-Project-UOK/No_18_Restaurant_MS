@@ -117,6 +117,12 @@ export default function AdminDashboard() {
             <span className="action-desc">Update your account information</span>
           </button>
 
+          <button className="action-button" onClick={() => navigate(ROUTES.ADMIN_STAFF.path)}>
+            <span className="action-icon">👥</span>
+            <span className="action-text">Staff Management</span>
+            <span className="action-desc">View and manage staff accounts & roles</span>
+          </button>
+
           <button className="action-button">
             <span className="action-icon">📱</span>
             <span className="action-text">Manage Users</span>

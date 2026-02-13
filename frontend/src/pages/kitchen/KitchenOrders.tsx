@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { ROUTES } from "../../config/routes";
 import OrderTicket from "./OrderTicket";
 import "./kitchen.css";
 

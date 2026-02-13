@@ -1,7 +1,10 @@
-interface MenuItem {
+export interface MenuItem {
   id: number;
   name: string;
   price: number;
+  description?: string;
+  category?: string;
+  available?: boolean;
 }
 
 export async function fetchMenu(): Promise<MenuItem[]> {

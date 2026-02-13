@@ -1,40 +1,6 @@
-.auth-container {
-  max-width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-}
+/* DEPRECATED: migrated to Tailwind utility classes. */
 
-.auth-container form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.auth-container input,
-.auth-container button {
-  padding: 10px;
-}
-
-.auth-container button {
-  cursor: pointer;
-}
-
-.auth-container .error-message {
-  color: red;
-}
-
-.auth-container .table-id {
-  padding: 10px;
-}
-
-.auth-container .register-link button {
-  background: none;
-  border: none;
-  color: blue;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
+/* Minimal profile styles kept for backward compatibility (convert to Tailwind when ready) */
 .profile-container {
   max-width: 500px;
   margin: 50px auto;
@@ -80,3 +46,4 @@
 .error-message {
   color: red;
 }
+

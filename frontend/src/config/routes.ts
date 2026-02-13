@@ -48,6 +48,13 @@ export const ROUTES = {
     requiredRoles: [2],
   },
 
+  ADMIN_STAFF: {
+    path: "/admin/staff",
+    name: "Staff Management",
+    public: false,
+    requiredRoles: [2],
+  },
+
   // Kitchen-only routes (role: 3)
   KITCHEN_ORDERS: {
     path: "/kitchen/orders",

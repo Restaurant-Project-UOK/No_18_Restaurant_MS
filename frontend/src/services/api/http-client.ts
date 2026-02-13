@@ -13,19 +13,13 @@
  * - X-Table-Id: <table_id> (required for protected routes)
  */
 
-import { getAccessToken, getRefreshToken, setAccessToken, clearTokens } from '../utils/jwt';
-import { apiConfig } from '../config/api.config';
+import { getAccessToken, getRefreshToken, setAccessToken, clearTokens } from '../../utils/jwt';
+import { apiConfig } from '../../config/api.config';
 
 interface RequestOptions extends RequestInit {
   tableId?: number | string;
 }
 
-interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
 
 /**
  * Refreshes the access token using the refresh token
