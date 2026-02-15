@@ -43,13 +43,25 @@ public class KitchenService {
      * 2. If successful → Publish Kafka event
      * 3. If failed → Throw exception (no Kafka event)
      */
-    public KitchenOrderResponse markOrderAsReady(Long orderId) {
-        logger.info("Marking order {} as READY", orderId);
+    public KitchenOrderResponse markOrderAsReady(Long orderId, String userId, String tableId) {
+        logger.info("Marking order {} as READY (userId: {}, tableId: {})", orderId, userId, tableId);
 
         // Step 1: Update Order Service
         String url = orderServiceBaseUrl + "/" + orderId + "/status";
         UpdateOrderStatusRequest request = new UpdateOrderStatusRequest("READY");
-        HttpEntity<UpdateOrderStatusRequest> requestEntity = new HttpEntity<>(request);
+
+        // Add authorization headers
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        if (userId != null) {
+            headers.set("X-User-ID", userId);
+            logger.debug("Adding X-User-ID header: {}", userId);
+        }
+        if (tableId != null) {
+            headers.set("X-Table-ID", tableId);
+            logger.debug("Adding X-Table-ID header: {}", tableId);
+        }
+
+        HttpEntity<UpdateOrderStatusRequest> requestEntity = new HttpEntity<>(request, headers);
 
         try {
             logger.info("Calling Order Service to update order {} status to READY", orderId);
@@ -82,12 +94,24 @@ public class KitchenService {
      * Update order status to any status (CREATED, PREPARING, READY, etc.)
      * Generic method for status updates without Kafka events
      */
-    public KitchenOrderResponse updateOrderStatus(Long orderId, String status) {
-        logger.info("Updating order {} status to {}", orderId, status);
+    public KitchenOrderResponse updateOrderStatus(Long orderId, String status, String userId, String tableId) {
+        logger.info("Updating order {} status to {} (userId: {}, tableId: {})", orderId, status, userId, tableId);
 
         String url = orderServiceBaseUrl + "/" + orderId + "/status";
         UpdateOrderStatusRequest request = new UpdateOrderStatusRequest(status);
-        HttpEntity<UpdateOrderStatusRequest> requestEntity = new HttpEntity<>(request);
+
+        // Add authorization headers
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        if (userId != null) {
+            headers.set("X-User-ID", userId);
+            logger.debug("Adding X-User-ID header: {}", userId);
+        }
+        if (tableId != null) {
+            headers.set("X-Table-ID", tableId);
+            logger.debug("Adding X-Table-ID header: {}", tableId);
+        }
+
+        HttpEntity<UpdateOrderStatusRequest> requestEntity = new HttpEntity<>(request, headers);
 
         try {
             logger.info("Calling Order Service to update order {} status to {}", orderId, status);
@@ -139,4 +163,3 @@ public class KitchenService {
         }
     }
 }
-
