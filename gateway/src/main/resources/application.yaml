@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -9,15 +9,23 @@ spring:
       routes:
         # Auth Service (Public - No JWT Required)
         - id: auth-service
-          uri: http://localhost:8081
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/auth/**
           filters:
-            - RewritePath=/api/auth/(?<segment>.*), /${segment}
+            - RewritePath=/api/auth/(?<segment>.*), /api/auth/${segment}
+
+        # Auth Service - Admin Staff Management
+        - id: auth-service-admin
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/admin/staff/**, /api/admin/users/**
+          filters:
+            - RewritePath=/api/admin/(?<segment>.*), /api/admin/${segment}
 
         # Menu Service
         - id: menu-service
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/menu/**
           filters:
@@ -25,7 +33,7 @@ spring:
 
         # Menu Service - Admin Menu
         - id: admin-menu-service
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/admin/menu/**
           filters:
@@ -33,7 +41,7 @@ spring:
 
         # Category Service - Public (No Auth)
         - id: category-service-public
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/categories/**
           filters:
@@ -41,7 +49,7 @@ spring:
 
         # Category Service - Admin
         - id: category-service-admin
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/admin/categories/**
           filters:
@@ -49,7 +57,7 @@ spring:
 
         # Media Service (Menu Service)
         - id: media-service
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/media/**
           filters:
@@ -57,29 +65,55 @@ spring:
 
         # Order Service
         - id: order-service
-          uri: http://localhost:8083
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/orders/**
 
         # Analytics Service
         - id: analytics-service
-          uri: http://localhost:8084
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/analytics/**
 
         # KDS Service
         - id: kds-service
-          uri: http://localhost:8085
+          uri: ${KDS_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/kds/**
 
+        # Cart Service
+        - id: cart-service
+          uri: ${CART_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - RewritePath=/api/cart/(?<segment>.*), /api/cart/${segment}
+
+        # Payment Service
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - RewritePath=/api/payments/(?<segment>.*), /api/payments/${segment}
+
+        # AI Service (FastAPI ChatBot)
+        - id: ai-service
+          uri: ${AI_SERVICE_URL:http://localhost:8000}
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - RewritePath=/api/ai/(?<segment>.*), /${segment}
       # Global CORS Configuration
       globalcors:
         corsConfigurations:
           '[/**]':
             allowedOrigins:
-              - "http://localhost:3000"
-              - "http://localhost:3001"
+              - ${CORS_ALLOWED_ORIGIN_1:http://localhost:5005}
+              - ${CORS_ALLOWED_ORIGIN_2:http://localhost:3000}
+              - ${CORS_ALLOWED_ORIGIN_3:http://localhost:3001}
+            allowedOriginPatterns:
+              - "https://*.vercel.app"
             allowedMethods:
               - GET
               - POST
@@ -92,12 +126,13 @@ spring:
             exposedHeaders:
               - X-Correlation-Id
               - X-Service-Name
+              - Authorization
             allowCredentials: true
             maxAge: 3600
 
 # JWT Configuration
 jwt:
-  secret: 7d31f0ead336068cac57f475bdb722e69bb452d2
+  secret: ${JWT_SECRET}  # REQUIRED - Must be set in environment
 
 # Public paths that don't require JWT (comma-separated)
 gateway:
@@ -106,5 +141,5 @@ gateway:
 # Logging
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    com.example.api_gateway: DEBUG
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:DEBUG}
+    com.example.api_gateway: ${LOG_LEVEL_APP:DEBUG}
