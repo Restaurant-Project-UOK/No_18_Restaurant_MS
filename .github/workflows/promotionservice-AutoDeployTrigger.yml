@@ -1,0 +1,31 @@
+name: Promotion Service CI/CD
+
+on:
+  push:
+    branches: [ dev_disara ] # Runs when you push to your branch
+    paths:
+      - 'services/promotion-service/**' # Runs only if you change promotion files
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push image to ACR
+        run: |
+          az acr build --registry res18 --image promotion-service:${{ github.sha }} --file services/promotion-service/Dockerfile .
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ransini-02
+          containerAppName: promotion-service
+          containerAppEnvironment: managedEnvironment-ransini02-a847
+          imageToDeploy: res18.azurecr.io/promotion-service:${{ github.sha }}
