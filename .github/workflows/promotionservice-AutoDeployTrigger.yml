@@ -25,7 +25,7 @@ jobs:
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
-          resourceGroup: ransini-02
-          containerAppName: promotion-service
-          containerAppEnvironment: managedEnvironment-ransini02-a847
-          imageToDeploy: res18.azurecr.io/promotion-service:${{ github.sha }}
+          resourceGroup: "ransini-02"
+          containerAppName: "promotion-service"
+          containerAppEnvironment: "managedEnvironment-ransini02-a847"
+          imageToDeploy: "res18.azurecr.io/promotion-service:${{ github.sha }}"
