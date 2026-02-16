@@ -22,11 +22,9 @@ jobs:
         run: |
           az acr build --registry res18 --image promotion-service:${{ github.sha }} --file services/promotion-service/Dockerfile .
 
-      - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
-        with:
-          resourceGroup: "ransini-02"
-          containerAppName: "promotion-service"
-          containerAppEnvironment: "managedEnvironment-ransini02-a847"
-          acrName: res18 
-          imageToDeploy: "res18.azurecr.io/promotion-service:${{ github.sha }}"
+      - name: Deploy to Azure Container Apps (Manual CLI)
+        run: |
+          az containerapp update \
+            --name promotion-service \
+            --resource-group ransini-02 \
+            --image res18.azurecr.io/promotion-service:${{ github.sha }}
