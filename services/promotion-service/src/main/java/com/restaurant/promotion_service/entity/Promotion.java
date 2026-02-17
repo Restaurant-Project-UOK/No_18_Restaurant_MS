@@ -19,9 +19,6 @@ public class Promotion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "restaurant_id", nullable = false)
-    private Long restaurantId;
-
     @Column(nullable = false, length = 100)
     private String name;
 
