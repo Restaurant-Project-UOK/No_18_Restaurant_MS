@@ -7,7 +7,7 @@ import { profileService, UpdateProfileRequest } from '../services/profileService
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, tableId?: number) => Promise<void>;
   logout: () => Promise<void>;
-  register: (name: string, email: string, password: string, role: UserRole, phone?: string, address?: string) => Promise<void>;
+  register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
   updateProfile: (name: string, phone: string, address: string) => Promise<void>;
   addStaff: (name: string, email: string, password: string, role: UserRole, phone: string) => Promise<void>;
   getJwtToken: () => string | null;
@@ -65,6 +65,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('auth_access_token', response.accessToken);
       localStorage.setItem('auth_refresh_token', response.refreshToken);
       localStorage.setItem('auth_user', JSON.stringify(response.user));
+      localStorage.setItem('auth_user_id', response.user.id.toString());
 
       setAuthState({
         user: response.user,
@@ -87,8 +88,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = useCallback(async () => {
     try {
       const token = localStorage.getItem('auth_access_token');
+      const userIdStr = localStorage.getItem('auth_user_id');
+      const userId = userIdStr ? parseInt(userIdStr, 10) : undefined;
+
       if (token) {
-        await authService.logout(token);
+        await authService.logout(token, userId);
       }
     } catch (error) {
       console.error('Logout error:', error);
@@ -104,34 +108,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.removeItem('auth_access_token');
       localStorage.removeItem('auth_refresh_token');
       localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_user_id');
     }
   }, []);
 
   const register = useCallback(
-    async (name: string, email: string, password: string, role: UserRole, phone?: string, address?: string) => {
+    async (name: string, email: string, password: string, phone?: string): Promise<void> => {
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
+
       try {
+        console.log('[AuthContext] Registering user:', email);
+
         const registerData: RegisterRequest = {
           fullName: name,
           email,
           password,
-          role,
-          provider: 1, // local provider
+          role: UserRole.CUSTOMER,
+          provider: 1,
           phone,
-          address,
         };
-        await authService.register(registerData);
-        
-        // Auto-login after successful registration
+
+        // Backend returns a success message string
+        const message = await authService.register(registerData);
+        console.log('[AuthContext] Registration successful:', message);
+
+        // After registration, automatically log in
+        console.log('[AuthContext] Attempting auto-login after registration');
         await login(email, password);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+        console.error('[AuthContext] Registration error:', errorMessage);
         setAuthState((prev) => ({
           ...prev,
           loading: false,
           error: errorMessage,
         }));
-        throw error;
+        throw err;
       }
     },
     [login]
@@ -149,7 +161,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           address,
         };
         const updatedProfile = await profileService.updateMyProfile(updateData, authState.token);
-        
+
         // Update auth state with new profile data
         const updatedUser = {
           ...authState.user,
@@ -157,13 +169,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           phone: updatedProfile.phone,
           address: updatedProfile.address,
         };
-        
+
         setAuthState({
           ...authState,
           user: updatedUser,
           loading: false,
         });
-        
+
         localStorage.setItem('auth_user', JSON.stringify(updatedUser));
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Profile update failed';
@@ -181,7 +193,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addStaff = useCallback(
     async (name: string, email: string, password: string, role: UserRole, phone: string) => {
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
-      
+
       try {
         const registerData: RegisterRequest = {
           fullName: name,
@@ -192,7 +204,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           phone,
         };
         await authService.register(registerData);
-        
+
         setAuthState((prev) => ({ ...prev, loading: false, error: null }));
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to add staff';
@@ -218,7 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!refreshTok) {
       throw new Error('No refresh token available');
     }
-    
+
     try {
       const response = await authService.refreshAccessToken({ refreshToken: refreshTok });
       localStorage.setItem('auth_access_token', response.accessToken);
@@ -235,11 +247,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [authState, login, logout, register, updateProfile, addStaff, getJwtToken, refreshToken]
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

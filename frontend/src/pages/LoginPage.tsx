@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { MdRestaurant, MdLogin, MdQrCode2 } from 'react-icons/md';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('customer@restaurant.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();

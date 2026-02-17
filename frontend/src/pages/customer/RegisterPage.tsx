@@ -50,7 +50,7 @@ export default function CustomerRegisterPage() {
 
     try {
       // Register with customer role
-      await register(formData.name, formData.email, formData.password, UserRole.CUSTOMER);
+      await register(formData.name, formData.email, formData.password, UserRole.CUSTOMER, formData.phone);
 
       // Redirect to customer dashboard with tableId
       if (tableId) {
@@ -58,8 +58,9 @@ export default function CustomerRegisterPage() {
       } else {
         navigate('/customer');
       }
-    } catch {
-      setError('An error occurred during registration');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred during registration';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

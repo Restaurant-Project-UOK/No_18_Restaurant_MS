@@ -15,16 +15,8 @@ export interface RegisterRequest {
   address?: string;
 }
 
-export interface RegisterResponse {
-  id: number;
-  email: string;
-  role: number;
-  profile: {
-    fullName: string;
-    phone?: string;
-    address?: string;
-  };
-}
+// Backend returns a simple string message on register
+export type RegisterResponse = string;
 
 export interface LoginRequest {
   email: string;
@@ -32,6 +24,7 @@ export interface LoginRequest {
   tableId?: number; // Optional for customer QR login
 }
 
+// Maps to TokenResponseDto from backend
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
@@ -42,6 +35,7 @@ export interface RefreshTokenRequest {
   refreshToken: string;
 }
 
+// Maps to TokenRefreshResponseDto from backend
 export interface RefreshTokenResponse {
   accessToken: string;
   tokenType: string;
@@ -64,13 +58,14 @@ export interface UserProfile {
 /**
  * POST /api/auth/register
  * Registers a new user (customer or staff)
+ * Backend returns: "Customer created successfully"
  * 
  * @param registerData - Registration data
- * @returns Registered user info
+ * @returns Success message string
  */
 export const register = async (registerData: RegisterRequest): Promise<RegisterResponse> => {
   try {
-    const response = await apiRequest<RegisterResponse>(
+    const response = await apiRequest<string>(
       '/api/auth/register',
       {
         method: 'POST',
@@ -98,6 +93,7 @@ export const register = async (registerData: RegisterRequest): Promise<RegisterR
 /**
  * POST /api/auth/login
  * Authenticates a user and returns tokens
+ * Backend returns: TokenResponseDto { accessToken, refreshToken, user }
  * 
  * @param loginData - Login credentials
  * @returns Access token, refresh token, and user info
@@ -132,9 +128,11 @@ export const login = async (loginData: LoginRequest): Promise<LoginResponse> => 
 /**
  * POST /api/auth/refresh
  * Refreshes an access token using a refresh token
+ * Backend expects: Map<String, String> with "refreshToken" key
+ * Backend returns: TokenRefreshResponseDto { accessToken, tokenType, expiresIn }
  * 
  * @param refreshData - Refresh token
- * @returns New access token
+ * @returns New access token info
  */
 export const refreshAccessToken = async (refreshData: RefreshTokenRequest): Promise<RefreshTokenResponse> => {
   try {
@@ -142,7 +140,9 @@ export const refreshAccessToken = async (refreshData: RefreshTokenRequest): Prom
       '/api/auth/refresh',
       {
         method: 'POST',
-        body: JSON.stringify(refreshData),
+        body: JSON.stringify({
+          refreshToken: refreshData.refreshToken,
+        }),
       }
     );
 
@@ -157,31 +157,43 @@ export const refreshAccessToken = async (refreshData: RefreshTokenRequest): Prom
 /**
  * POST /api/auth/logout
  * Logs out the current user
+ * Backend expects: Authorization header and X-User-Id header
+ * Backend returns: "Logged out successfully"
  * 
  * @param accessToken - Current access token
+ * @param userId - Current user ID
  * @returns Success message
  */
-export const logout = async (accessToken?: string): Promise<string> => {
+export const logout = async (accessToken?: string, userId?: number): Promise<string> => {
   try {
     const token = accessToken || localStorage.getItem('auth_access_token');
+    const storedUserId = userId || parseInt(localStorage.getItem('auth_user_id') || '0', 10);
+    
     if (!token) {
       throw new Error('No access token provided');
     }
+    
+    if (!storedUserId) {
+      throw new Error('No user ID provided');
+    }
 
-    await apiRequest(
+    const response = await apiRequest<string>(
       '/api/auth/logout',
       {
         method: 'POST',
         jwt: token,
+        headers: {
+          'X-User-Id': storedUserId.toString(),
+        },
       }
     );
 
     console.log('[authService] User logged out');
-    return 'Logged out successfully';
+    return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Logout failed';
     console.error('[authService] Logout failed:', message);
-    // Still clear local storage even if API fails
+    // Still throw so caller knows it failed
     throw new Error(message);
   }
 };
@@ -196,3 +208,4 @@ export const authService = {
   refreshAccessToken,
   logout,
 };
+
