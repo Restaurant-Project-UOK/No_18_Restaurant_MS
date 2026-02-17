@@ -50,7 +50,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Transactional
     @Override
-    public UserResponseDto register(RegisterRequestDto dto) {
+    public void register(RegisterRequestDto dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
             throw new RuntimeException("Email already in use");
         }
@@ -70,7 +70,6 @@ public class AuthServiceImpl implements AuthService {
         user.setProfile(profile);
 
         userRepository.save(user);
-        return new UserResponseDto(user);
     }
 
     @Override
@@ -82,23 +81,23 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        String accessToken = jwtService.generateAccessToken(user, 0);
-        String refreshToken = jwtService.generateRefreshToken(user, 0);
+        int tableId =  dto.getTableId();
+
+        String accessToken = jwtService.generateAccessToken(user, tableId);
+        String refreshToken = jwtService.generateRefreshToken(user, tableId);
 
         // Track user activity - record login
-        UserActivity activity = UserActivity.builder()
-                .user(user)
-                .tableNo(0) // Will be updated from client if customer
-                .loginAt(LocalDateTime.now())
-                .logoutAt(null) // Active session
-                .build();
+        UserActivity activity = new UserActivity();
+        activity.setUser(user);
+        activity.setTableNo(tableId);// Will be updated from client if customer
+        activity.setLoginAt(LocalDateTime.now());
+        activity.setLogoutAt(null); ;
         userActivityRepository.save(activity);
         log.info("User activity tracked - login for user: {}", user.getEmail());
 
         return TokenResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .user(new UserResponseDto(user))
                 .tokenType("Bearer")
                 .accessTokenExpiresIn(jwtService.getAccessTokenExpirationMs())
                 .refreshTokenExpiresIn(jwtService.getRefreshTokenExpirationMs())
@@ -119,20 +118,20 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtService.generateAccessToken(user, 0);
         String refreshToken = jwtService.generateRefreshToken(user, 0);
 
+        int tableId = dto.getTableId();
         // Track user activity - record login
-        UserActivity activity = UserActivity.builder()
-                .user(user)
-                .tableNo(0) // Will be updated from client if customer
-                .loginAt(LocalDateTime.now())
-                .logoutAt(null) // Active session
-                .build();
+        UserActivity activity = new UserActivity();
+        activity.setUser(user);
+        activity.setTableNo(tableId);// Will be updated from client if customer
+        activity.setLoginAt(LocalDateTime.now());
+        activity.setLogoutAt(null); ;
+
         userActivityRepository.save(activity);
         log.info("User activity tracked - Google login for user: {}", user.getEmail());
 
         return TokenResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .user(new UserResponseDto(user))
                 .tokenType("Bearer")
                 .accessTokenExpiresIn(jwtService.getAccessTokenExpirationMs())
                 .refreshTokenExpiresIn(jwtService.getRefreshTokenExpirationMs())
@@ -178,9 +177,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Transactional
     @Override
-    public UserResponseDto createStaff(CreateStaffRequestDto dto) {
+    public void createStaff(CreateStaffRequestDto dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
             throw new RuntimeException("Email already in use");
+        }
+
+        // Validate role
+        int role = dto.getRole();
+        if (role < 2 || role > 4) {
+            throw new RuntimeException("Invalid role. Allowed values: 2 (Admin), 3 (Kitchen Staff), 4 (Waiter)");
         }
 
         User user = new User();
@@ -188,7 +193,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         // Enforce role to be whatever is passed, assuming validation happens at controller or via trust (this is internal/admin method)
         // Default to Staff/Kitchen (3) if null, but explicit is better.
-        user.setRole(dto.getRole() != null ? dto.getRole() : 3);
+        user.setRole(role);
         user.setProvider(1); // LOCAL
         user.setStatus(1); // ACTIVE
 
@@ -200,8 +205,6 @@ public class AuthServiceImpl implements AuthService {
         profile.setAddress(dto.getAddress());
         user.setProfile(profile);
 
-        userRepository.save(user);
-        return new UserResponseDto(user);
     }
 
     @Override

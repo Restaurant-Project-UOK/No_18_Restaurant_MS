@@ -1,5 +1,6 @@
 package com.example.auth_service.DTO;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 @Data
@@ -8,5 +9,6 @@ import lombok.*;
 public class LoginRequestDto {
     private String email;
     private String password;
-    private int tableId;
+    @JsonProperty(defaultValue = "0")
+    private int tableId = 0;
 }

@@ -5,12 +5,12 @@ import com.example.auth_service.DTO.*;
 import java.util.List;
 
 public interface AuthService {
-    UserResponseDto register(RegisterRequestDto dto);
+    void register(RegisterRequestDto dto);
     TokenResponseDto login(LoginRequestDto dto);
     TokenResponseDto googleLogin(LoginRequestDto dto);
     void logoutUser(Long userId, String token);
 
     // Admin / Staff Management
-    UserResponseDto createStaff(CreateStaffRequestDto dto);
+    void createStaff(CreateStaffRequestDto dto);
     List<UserResponseDto> getAllUsers();
 }

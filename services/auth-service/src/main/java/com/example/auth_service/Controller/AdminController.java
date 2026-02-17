@@ -25,16 +25,10 @@ public class AdminController {
     private final AuthService authService;
 
     @PostMapping("/staff")
-    public ResponseEntity<UserResponseDto> createStaff(@RequestBody CreateStaffRequestDto dto) {
-        // Here we should ideally check if the requester is ADMIN.
-        // But since this is a microservice behind a Gateway, we trust the Gateway to route /api/admin/** only to authorized users
-        // OR we check the security context if the token is passed through.
-        
-        // For now, relies on gateway routing / simple accessibility.
-        // IMPORTANT: In production, ensure SecurityConfig checks for Role 2 (ADMIN).
-        
+    public ResponseEntity<String> createStaff(@RequestBody CreateStaffRequestDto dto) {
+        authService.createStaff(dto);
         log.info("Creating staff user: {}", dto.getEmail());
-        return ResponseEntity.ok(authService.createStaff(dto));
+        return ResponseEntity.ok("Staff created successfully");
     }
 
     @GetMapping("/users")

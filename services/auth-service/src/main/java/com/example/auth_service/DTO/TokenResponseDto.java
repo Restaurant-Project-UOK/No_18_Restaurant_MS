@@ -37,7 +37,6 @@ public class TokenResponseDto {
     public TokenResponseDto(String accessToken, String refreshToken, User user) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
-        this.user = new UserResponseDto(user);
         this.tokenType = "Bearer";
     }
 }

@@ -25,13 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Authentication Controller
  * Handles user registration, login, token refresh, and logout.
- * 
- * @author Ishanka Senadeera
- * @since 2026-02-14
- * @updated 2026-02-15 - Improved token refresh to return JSON response
  */
 @Slf4j
-@Data
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -39,25 +34,25 @@ public class AuthController {
     private final AuthService authService;
     private final JwtService jwtService;
 
+    public AuthController(AuthService authService, JwtService jwtService) {
+        this.authService = authService;
+        this.jwtService = jwtService;
+    }
+
     @PostMapping("/register")
-    public ResponseEntity<UserResponseDto> register(@RequestBody RegisterRequestDto dto) {
-        UserResponseDto userResponse = authService.register(dto);
-        log.info("User registered successfully: email={}", userResponse.getEmail());
-        return ResponseEntity.ok(userResponse);
+    public ResponseEntity<String> register(@RequestBody RegisterRequestDto dto) {
+        authService.register(dto);
+        log.info("User registered successfully: email={}", dto.getEmail());
+        return ResponseEntity.ok("Customer created successfully");
     }
 
     @PostMapping("/login")
     public ResponseEntity<TokenResponseDto> login(@RequestBody LoginRequestDto dto) {
+        log.info("User logged successfully: email={}", dto.getEmail());
         return ResponseEntity.ok(authService.login(dto));
     }
 
-    /**
-     * Refresh access token using a valid refresh token.
-     * Returns a new access token with expiration information in JSON format.
-     * 
-     * @param request Map containing refreshToken
-     * @return TokenRefreshResponseDto with new access token
-     */
+
     @PostMapping("/refresh")
     public ResponseEntity<TokenRefreshResponseDto> generateNewAccessToken(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
@@ -75,21 +70,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<String> logout(
             @RequestHeader("Authorization") String authHeader,
-            @RequestHeader(value = "X-User-Id", required = false) String gatewayUserId) {
-
-        Long userId = null;
-
-        // Try to get user ID from gateway header first (gateway mode)
-        if (gatewayUserId != null && !gatewayUserId.isEmpty()) {
-            userId = Long.parseLong(gatewayUserId);
-        } else {
-            // Fallback to SecurityContext (standalone mode)
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || !auth.isAuthenticated()) {
-                return ResponseEntity.status(401).body("User not authenticated");
-            }
-            userId = Long.parseLong(auth.getName());
-        }
+            @RequestHeader("X-User-Id") Long userId) {
 
         // Extract token from Bearer header
         String token = null;
@@ -98,8 +79,10 @@ public class AuthController {
         }
 
         authService.logoutUser(userId, token);
+        log.info("User logged out successfully: userId={}", userId);
 
         return ResponseEntity.ok("Logged out successfully");
     }
+
 
 }
