@@ -1,62 +1,95 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { TableProvider } from "./context/TableContext";
-import { AuthProvider } from "./context/AuthContext";
-import { CartProvider } from "./context/CartContext";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { OrderProvider } from './context/OrderContext';
+import { MenuProvider } from './context/MenuContext';
+import { CartProvider } from './context/CartContext';
+import { TableProvider } from './context/TableContext';
+import { RoleBasedRoute, QRProtectedRoute } from './components/Routes';
+import { RootRedirect } from './components/RootRedirect';
 
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
-import Profile from "./pages/auth/Profile";
-import Menu from "./pages/menu/Menu";
-import Order from "./pages/order/Order";
+// Pages
+import LoginPage from './pages/LoginPage';
+import ProfilePage from './pages/ProfilePage';
+import CustomerHomePage from './pages/customer/HomePage';
+import CustomerRegisterPage from './pages/customer/RegisterPage';
+import AdminDashboardPage from './pages/admin/DashboardPage';
+import KitchenDashboardPage from './pages/kitchen/DashboardPage';
+import WaiterDashboardPage from './pages/waiter/DashboardPage';
 
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminMenuManagement from "./pages/admin/AdminMenuManagement";
-import StaffManagement from "./pages/admin/StaffManagement";
-import { RoleProtectedRoute } from "./components/RoleProtectedRoute";
-
-export default function App() {
+export function App() {
   return (
     <Router>
       <AuthProvider>
-        <TableProvider>
-          <CartProvider>
-            <Routes>
-              <Route path="/" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/menu" element={<Menu />} />
-              <Route path="/order" element={<Order />} />
+        <OrderProvider>
+          <MenuProvider>
+            <CartProvider>
+              <TableProvider>
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<CustomerRegisterPage />} />
 
-              <Route
-                path="/admin/dashboard"
-                element={
-                  <RoleProtectedRoute requiredRoles={[2]}>
-                    <AdminDashboard />
-                  </RoleProtectedRoute>
-                }
-              />
+                  {/* Customer Routes (QR Code Protected - Role: 1) */}
+                  <Route
+                    path="/customer/*"
+                    element={
+                      <QRProtectedRoute roles={[1]}>
+                        <CustomerHomePage />
+                      </QRProtectedRoute>
+                    }
+                  />
 
-              <Route
-                path="/admin/menu"
-                element={
-                  <RoleProtectedRoute requiredRoles={[2]}>
-                    <AdminMenuManagement />
-                  </RoleProtectedRoute>
-                }
-              />
+                  {/* Profile Route (All authenticated users) */}
+                  <Route
+                    path="/profile"
+                    element={
+                      <RoleBasedRoute roles={[1, 2, 3, 4]}>
+                        <ProfilePage />
+                      </RoleBasedRoute>
+                    }
+                  />
 
-              <Route
-                path="/admin/staff"
-                element={
-                  <RoleProtectedRoute requiredRoles={[2]}>
-                    <StaffManagement />
-                  </RoleProtectedRoute>
-                }
-              />
-            </Routes>
-          </CartProvider>
-        </TableProvider>
+                  {/* Admin Routes (Role: 2) */}
+                  <Route
+                    path="/admin/*"
+                    element={
+                      <RoleBasedRoute roles={[2]}>
+                        <AdminDashboardPage />
+                      </RoleBasedRoute>
+                    }
+                  />
+
+                  {/* Kitchen Routes (Role: 2, 3) */}
+                  <Route
+                    path="/kitchen/*"
+                    element={
+                      <RoleBasedRoute roles={[2, 3]}>
+                        <KitchenDashboardPage />
+                      </RoleBasedRoute>
+                    }
+                  />
+
+                  {/* Waiter Routes (Role: 2, 4) */}
+                  <Route
+                    path="/waiter/*"
+                    element={
+                      <RoleBasedRoute roles={[2, 4]}>
+                        <WaiterDashboardPage />
+                      </RoleBasedRoute>
+                    }
+                  />
+
+                  {/* Fallback */}
+                  <Route path="/" element={<RootRedirect />} />
+                  <Route path="*" element={<Navigate to="/login" replace />} />
+                </Routes>
+              </TableProvider>
+            </CartProvider>
+          </MenuProvider>
+        </OrderProvider>
       </AuthProvider>
     </Router>
   );
 }
+
+export default App;

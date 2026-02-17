@@ -1,0 +1,223 @@
+import { Order } from '../types';
+import { apiRequest } from '../config/api';
+
+// ============================================
+// TYPES & INTERFACES
+// ============================================
+
+export interface CartItemRequest {
+  menuItemId: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+  note?: string;
+}
+
+export interface UpdateCartItemRequest {
+  quantity: number;
+}
+
+export interface CartItemResponse {
+  id: string;
+  menuItemId: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+  note?: string;
+  subtotal: number;
+}
+
+export interface CartOpenResponse {
+  cartId: string;
+  status: string;
+  message: string;
+}
+
+export interface CheckoutResponse {
+  orderId: string;
+  status: string;
+  totalAmount: number;
+}
+
+// ============================================
+// CART API ENDPOINTS
+// ============================================
+
+/**
+ * POST /api/cart/open
+ * Opens a new shopping cart session
+ * 
+ * @param accessToken - JWT access token
+ * @returns Cart ID and confirmation
+ */
+const openCart = async (accessToken?: string): Promise<CartOpenResponse> => {
+  try {
+    const token = accessToken || localStorage.getItem('auth_access_token');
+    if (!token) {
+      throw new Error('Unauthorized: No access token');
+    }
+
+    const response = await apiRequest<CartOpenResponse>(
+      '/api/cart/open',
+      {
+        method: 'POST',
+        jwt: token,
+      }
+    );
+
+    console.log('[cartService] Cart opened:', response.cartId);
+    return response;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to open cart';
+    console.error('[cartService] Failed to open cart:', message);
+    throw new Error(message);
+  }
+};
+
+/**
+ * POST /api/cart/items
+ * Adds an item to the cart
+ * 
+ * @param itemData - Cart item details
+ * @param accessToken - JWT access token
+ * @returns Updated cart item
+ */
+const addCartItem = async (
+  itemData: CartItemRequest,
+  accessToken?: string
+): Promise<CartItemResponse> => {
+  try {
+    const token = accessToken || localStorage.getItem('auth_access_token');
+    if (!token) {
+      throw new Error('Unauthorized: No access token');
+    }
+
+    const response = await apiRequest<CartItemResponse>(
+      '/api/cart/items',
+      {
+        method: 'POST',
+        jwt: token,
+        body: JSON.stringify(itemData),
+      }
+    );
+
+    console.log('[cartService] Added cart item:', response.id);
+    return response;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to add cart item';
+    console.error('[cartService] Failed to add cart item:', message);
+    throw new Error(message);
+  }
+};
+
+/**
+ * PUT /api/cart/items/:itemId
+ * Updates the quantity of a cart item
+ * 
+ * @param itemId - Cart item ID
+ * @param updateData - Updated quantity
+ * @param accessToken - JWT access token
+ * @returns Updated cart item
+ */
+const updateCartItem = async (
+  itemId: string,
+  updateData: UpdateCartItemRequest,
+  accessToken?: string
+): Promise<CartItemResponse> => {
+  try {
+    const token = accessToken || localStorage.getItem('auth_access_token');
+    if (!token) {
+      throw new Error('Unauthorized: No access token');
+    }
+
+    const response = await apiRequest<CartItemResponse>(
+      `/api/cart/items/${itemId}`,
+      {
+        method: 'PUT',
+        jwt: token,
+        body: JSON.stringify(updateData),
+      }
+    );
+
+    console.log('[cartService] Updated cart item:', itemId);
+    return response;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update cart item';
+    console.error('[cartService] Failed to update cart item:', message);
+    throw new Error(message);
+  }
+};
+
+/**
+ * POST /api/cart/checkout
+ * Checks out the current cart and creates an order
+ * 
+ * @param accessToken - JWT access token
+ * @returns Order ID, status, and total amount
+ */
+const checkout = async (accessToken?: string): Promise<CheckoutResponse> => {
+  try {
+    const token = accessToken || localStorage.getItem('auth_access_token');
+    if (!token) {
+      throw new Error('Unauthorized: No access token');
+    }
+
+    const response = await apiRequest<CheckoutResponse>(
+      '/api/cart/checkout',
+      {
+        method: 'POST',
+        jwt: token,
+      }
+    );
+
+    console.log('[cartService] Checkout completed:', response.orderId);
+    return response;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Checkout failed';
+    console.error('[cartService] Checkout failed:', message);
+    throw new Error(message);
+  }
+};
+
+/**
+ * GET /api/cart/order/:orderId
+ * Retrieves full order details
+ * 
+ * @param orderId - Order ID
+ * @param accessToken - JWT access token
+ * @returns Full order details
+ */
+const getOrder = async (orderId: string, accessToken?: string): Promise<Order> => {
+  try {
+    const token = accessToken || localStorage.getItem('auth_access_token');
+    if (!token) {
+      throw new Error('Unauthorized: No access token');
+    }
+
+    const response = await apiRequest<Order>(
+      `/api/cart/order/${orderId}`,
+      {
+        jwt: token,
+      }
+    );
+
+    console.log('[cartService] Retrieved order:', orderId);
+    return response;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch order';
+    console.error('[cartService] Failed to fetch order:', message);
+    throw new Error(message);
+  }
+};
+
+// ============================================
+// EXPORTED SERVICE
+// ============================================
+
+export const cartService = {
+  openCart,
+  addCartItem,
+  updateCartItem,
+  checkout,
+  getOrder,};
+

@@ -11,9 +11,9 @@ spring:
         - id: auth-service
           uri: ${AUTH_SERVICE_URL:http://localhost:8081}
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/auth/**, /api/profile/**
           filters:
-            - RewritePath=/api/auth/(?<segment>.*), /api/auth/${segment}
+            - RewritePath=/api/(auth|profile)/(?<segment>.*), /api/${1}/${segment}
 
         # Auth Service - Admin Staff Management
         - id: auth-service-admin
@@ -109,11 +109,9 @@ spring:
         corsConfigurations:
           '[/**]':
             allowedOrigins:
-              - ${CORS_ALLOWED_ORIGIN_1:http://localhost:5005}
-              - ${CORS_ALLOWED_ORIGIN_2:http://localhost:3000}
-              - ${CORS_ALLOWED_ORIGIN_3:http://localhost:3001}
+              - ${CORS_ALLOWED_ORIGIN:http://localhost:5005}
             allowedOriginPatterns:
-              - "https://*.vercel.app"
+              - ${CORS_ALLOWED_DOMAIN:https://*.vercel.app}
             allowedMethods:
               - GET
               - POST

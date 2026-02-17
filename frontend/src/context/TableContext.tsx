@@ -1,38 +1,85 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import { Table, TableStatus } from '../types';
+import { MOCK_TABLES } from '../data/mockData';
 
 interface TableContextType {
-  tableId: string | null;
-  setTableId: (id: string | null) => void;
+  tables: Table[];
+  updateTableStatus: (tableId: string, status: TableStatus) => void;
+  getTableById: (tableId: string) => Table | undefined;
+  getAvailableTables: () => Table[];
+  occupyTable: (tableId: string, orderId: string) => void;
+  releaseTable: (tableId: string) => void;
 }
 
 const TableContext = createContext<TableContextType | undefined>(undefined);
 
-interface TableProviderProps {
-  children: ReactNode;
-}
+export const TableProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [tables, setTables] = useState<Table[]>(MOCK_TABLES);
 
-export function TableProvider({ children }: TableProviderProps) {
-  const [tableId, setTableId] = useState<string | null>(null);
-  const location = useLocation();
+  const updateTableStatus = useCallback((tableId: string, status: TableStatus) => {
+    setTables((prev) =>
+      prev.map((table) =>
+        table.id === tableId ? { ...table, status } : table
+      )
+    );
+  }, []);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tableFromUrl = params.get("tableId");
-    if (tableFromUrl) setTableId(tableFromUrl);
-  }, [location]);
+  const getTableById = useCallback(
+    (tableId: string) => {
+      return tables.find((table) => table.id === tableId);
+    },
+    [tables]
+  );
+
+  const getAvailableTables = useCallback(() => {
+    return tables.filter((table) => table.status === TableStatus.AVAILABLE);
+  }, [tables]);
+
+  const occupyTable = useCallback((tableId: string, orderId: string) => {
+    setTables((prev) =>
+      prev.map((table) =>
+        table.id === tableId
+          ? { ...table, status: TableStatus.OCCUPIED, currentOrderId: orderId, occupiedAt: new Date().toISOString() }
+          : table
+      )
+    );
+  }, []);
+
+  const releaseTable = useCallback((tableId: string) => {
+    setTables((prev) =>
+      prev.map((table) =>
+        table.id === tableId
+          ? { ...table, status: TableStatus.CLEANING, currentOrderId: undefined, occupiedAt: undefined }
+          : table
+      )
+    );
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      tables,
+      updateTableStatus,
+      getTableById,
+      getAvailableTables,
+      occupyTable,
+      releaseTable,
+    }),
+    [tables, updateTableStatus, getTableById, getAvailableTables, occupyTable, releaseTable]
+  );
 
   return (
-    <TableContext.Provider value={{ tableId, setTableId }}>
+    <TableContext.Provider value={value}>
       {children}
     </TableContext.Provider>
   );
-}
+};
 
-export const useTable = () => {
+export const useTables = () => {
   const context = useContext(TableContext);
   if (!context) {
-    throw new Error("useTable must be used within TableProvider");
+    throw new Error('useTables must be used within TableProvider');
   }
   return context;
 };
+

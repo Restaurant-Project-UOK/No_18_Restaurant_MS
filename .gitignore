@@ -50,6 +50,9 @@ Thumbs.db
 .env.local
 .env.*.local
 .env.production
+.env.development
+# Keep .env.example files (they contain no secrets)
+!.env.example
 
 ### Logs ###
 logs/
