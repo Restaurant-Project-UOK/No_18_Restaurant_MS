@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { UserRole } from '../../types';
 import { MdRestaurant, MdEmail, MdLock, MdPerson, MdPhone } from 'react-icons/md';
 
 export default function CustomerRegisterPage() {
@@ -49,8 +48,8 @@ export default function CustomerRegisterPage() {
     setLoading(true);
 
     try {
-      // Register with customer role
-      await register(formData.name, formData.email, formData.password, UserRole.CUSTOMER, formData.phone);
+      // Register with customer role (role is set inside register function)
+      await register(formData.name, formData.email, formData.password, formData.phone);
 
       // Redirect to customer dashboard with tableId
       if (tableId) {

@@ -84,7 +84,14 @@ export const apiRequest = async <T = Record<string, unknown>>(
     throw new Error(errorData.message || `API Error: ${response.status}`);
   }
 
-  return response.json();
+  // Check content-type to handle both JSON and plain text responses
+  const contentType = response.headers.get('content-type');
+  if (contentType?.includes('application/json')) {
+    return response.json();
+  } else {
+    // Return text response (e.g., "Customer created successfully")
+    return response.text() as Promise<T>;
+  }
 };
 
 /**
