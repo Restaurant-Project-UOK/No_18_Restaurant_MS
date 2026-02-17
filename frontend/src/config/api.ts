@@ -64,6 +64,14 @@ export const apiRequest = async <T = Record<string, unknown>>(
   }
 
   const url = getApiUrl(endpoint);
+  
+  // Debug: Log the actual request being made
+  console.log('[apiRequest] Making request:', {
+    url,
+    method: fetchOptions.method || 'GET (default)',
+    hasBody: !!fetchOptions.body,
+  });
+
   const response = await fetch(url, {
     ...fetchOptions,
     headers,
@@ -77,6 +85,11 @@ export const apiRequest = async <T = Record<string, unknown>>(
     localStorage.removeItem('auth_user');
     window.location.href = '/login';
     throw new Error('Unauthorized. Please login again.');
+  }
+
+  // Handle 405 Method Not Allowed
+  if (response.status === 405) {
+    throw new Error('Invalid request method. Please try again.');
   }
 
   if (!response.ok) {
