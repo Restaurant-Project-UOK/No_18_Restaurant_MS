@@ -1,7 +1,6 @@
 package com.example.auth_service.Service.Impl;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +22,7 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     @Override
-    public ProfileDto getProfile(Integer userId) {
+    public ProfileDto getProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Profile profile = profileRepository.findById(userId).orElse(null);
@@ -36,7 +35,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Transactional
     @Override
-    public ProfileDto updateProfile(Integer userId, ProfileDto dto) {
+    public ProfileDto updateProfile(Long userId, ProfileDto dto) {
         User user = userRepository.findById(userId).orElseThrow();
 
         Profile profile = profileRepository.findById(userId).orElseGet(() -> {

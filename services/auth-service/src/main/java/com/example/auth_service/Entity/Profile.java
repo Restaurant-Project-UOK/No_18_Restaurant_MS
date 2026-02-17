@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 public class Profile {
 
     @Id
-    private Integer id; // same as user.id
+    private Long id; // same as user.id
 
     @MapsId
     @OneToOne

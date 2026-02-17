@@ -1,34 +1,51 @@
 package com.example.auth_service.Service.Impl;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.auth_service.DTO.CreateStaffRequestDto;
 import com.example.auth_service.DTO.LoginRequestDto;
 import com.example.auth_service.DTO.RegisterRequestDto;
 import com.example.auth_service.DTO.TokenResponseDto;
 import com.example.auth_service.DTO.UserResponseDto;
 import com.example.auth_service.Entity.Profile;
 import com.example.auth_service.Entity.User;
+import com.example.auth_service.Entity.UserActivity;
+import com.example.auth_service.Repository.UserActivityRepository;
 import com.example.auth_service.Repository.UserRepository;
 import com.example.auth_service.Security.JwtService;
 import com.example.auth_service.Service.AuthService;
+import com.example.auth_service.Service.TokenBlacklistService;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final UserActivityRepository userActivityRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     public AuthServiceImpl(
             UserRepository userRepository,
+            UserActivityRepository userActivityRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            TokenBlacklistService tokenBlacklistService
     ) {
         this.userRepository = userRepository;
+        this.userActivityRepository = userActivityRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Transactional
@@ -65,10 +82,27 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+        String accessToken = jwtService.generateAccessToken(user, 0);
+        String refreshToken = jwtService.generateRefreshToken(user, 0);
 
-        return new TokenResponseDto(accessToken, refreshToken, 15 * 60, 7 * 24 * 60 * 60, user);
+        // Track user activity - record login
+        UserActivity activity = UserActivity.builder()
+                .user(user)
+                .tableNo(0) // Will be updated from client if customer
+                .loginAt(LocalDateTime.now())
+                .logoutAt(null) // Active session
+                .build();
+        userActivityRepository.save(activity);
+        log.info("User activity tracked - login for user: {}", user.getEmail());
+
+        return TokenResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .user(new UserResponseDto(user))
+                .tokenType("Bearer")
+                .accessTokenExpiresIn(jwtService.getAccessTokenExpirationMs())
+                .refreshTokenExpiresIn(jwtService.getRefreshTokenExpirationMs())
+                .build();
     }
 
     @Override
@@ -82,9 +116,98 @@ public class AuthServiceImpl implements AuthService {
                     return userRepository.save(newUser);
                 });
 
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+        String accessToken = jwtService.generateAccessToken(user, 0);
+        String refreshToken = jwtService.generateRefreshToken(user, 0);
 
-        return new TokenResponseDto(accessToken, refreshToken, 15 * 60, 7 * 24 * 60 * 60, user);
+        // Track user activity - record login
+        UserActivity activity = UserActivity.builder()
+                .user(user)
+                .tableNo(0) // Will be updated from client if customer
+                .loginAt(LocalDateTime.now())
+                .logoutAt(null) // Active session
+                .build();
+        userActivityRepository.save(activity);
+        log.info("User activity tracked - Google login for user: {}", user.getEmail());
+
+        return TokenResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .user(new UserResponseDto(user))
+                .tokenType("Bearer")
+                .accessTokenExpiresIn(jwtService.getAccessTokenExpirationMs())
+                .refreshTokenExpiresIn(jwtService.getRefreshTokenExpirationMs())
+                .build();
+    }
+
+    /**
+     * Logs out the user by blacklisting their current token.
+     * 
+     * <p>The token is added to Redis blacklist with TTL matching the token's
+     * remaining validity period. This ensures the token cannot be reused
+     * even if the client doesn't discard it.</p>
+     * 
+     * <p>Also updates user_activity table to record logout timestamp.</p>
+     *
+     * @param userId The ID of the user logging out
+     * @param token The JWT access token to invalidate
+     */
+    @Override
+    public void logoutUser(Long userId, String token) {
+        // Get user
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Update user activity - mark active session as logged out
+        UserActivity activeSession = userActivityRepository.findTopByUserAndLogoutAtIsNullOrderByLoginAtDesc(user);
+        if (activeSession != null) {
+            activeSession.setLogoutAt(LocalDateTime.now());
+            userActivityRepository.save(activeSession);
+            log.info("User activity tracked - logout for user: {}", user.getEmail());
+        }
+        
+        // Get token expiration time for blacklist TTL
+        long remainingValidityMs = jwtService.getTokenRemainingValidityMs(token);
+        
+        if (remainingValidityMs > 0) {
+            tokenBlacklistService.blacklistToken(token, remainingValidityMs);
+            log.info("User {} logged out, token blacklisted for {} ms", userId, remainingValidityMs);
+        } else {
+            log.info("User {} logged out, token already expired", userId);
+        }
+    }
+
+    @Transactional
+    @Override
+    public UserResponseDto createStaff(CreateStaffRequestDto dto) {
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new RuntimeException("Email already in use");
+        }
+
+        User user = new User();
+        user.setEmail(dto.getEmail());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        // Enforce role to be whatever is passed, assuming validation happens at controller or via trust (this is internal/admin method)
+        // Default to Staff/Kitchen (3) if null, but explicit is better.
+        user.setRole(dto.getRole() != null ? dto.getRole() : 3);
+        user.setProvider(1); // LOCAL
+        user.setStatus(1); // ACTIVE
+
+        // Create profile
+        Profile profile = new Profile();
+        profile.setUser(user);
+        profile.setFullName(dto.getFullName());
+        profile.setPhone(dto.getPhone());
+        profile.setAddress(dto.getAddress());
+        user.setProfile(profile);
+
+        userRepository.save(user);
+        return new UserResponseDto(user);
+    }
+
+    @Override
+    public List<UserResponseDto> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(UserResponseDto::new)
+                .collect(Collectors.toList());
     }
 }

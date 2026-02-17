@@ -26,7 +26,7 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -38,7 +38,7 @@ public class User {
     private Integer provider; // 1=LOCAL, 2=GOOGLE
 
     @Column(nullable = false)
-    private Integer role; // 1=CUSTOMER, 2=ADMIN, 3=KITCHEN
+    private Integer role; // 1=CUSTOMER, 2=ADMIN, 3=KITCHEN, 4=WAITER
 
     @Column(nullable = false)
     private Integer status; // 1=ACTIVE, 0=INACTIVE
