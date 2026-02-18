@@ -96,16 +96,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   cartItemsRef.current = cartItems;
 
   const removeFromCart = useCallback(async (menuItemId: number) => {
-    // Find the backend cart item ID using the menu item ID
-    const itemToDelete = cartItemsRef.current.find(item => item.menuItem.id === menuItemId);
-    if (!itemToDelete) return;
-
     setLoading(true);
     setError(null);
     try {
       const token = getAccessToken() || undefined;
-      // DELETE /api/cart/items/{itemId} — uses backend cart item ID
-      await cartService.deleteCartItem(itemToDelete.id, token);
+      // DELETE /api/cart/items/{itemId} — Now using menuItemId as requested
+      await cartService.deleteCartItem(menuItemId, token);
       setCartItems((prev) => prev.filter((item) => item.menuItem.id !== menuItemId));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove from cart');
@@ -121,16 +117,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    // Find the backend cart item ID using the menu item ID
-    const itemToUpdate = cartItemsRef.current.find(item => item.menuItem.id === menuItemId);
-    if (!itemToUpdate) return;
-
     setLoading(true);
     setError(null);
     try {
       const token = getAccessToken() || undefined;
-      // PUT /api/cart/items/{itemId} — uses backend cart item ID
-      await cartService.updateCartItem(itemToUpdate.id, { quantity }, token);
+      // PUT /api/cart/items/{itemId} — Now using menuItemId as requested
+      await cartService.updateCartItem(menuItemId, { quantity }, token);
 
       setCartItems((prev) =>
         prev.map((item) =>

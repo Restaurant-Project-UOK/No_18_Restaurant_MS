@@ -13,7 +13,7 @@ export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user, addStaff, getJwtToken } = useAuth();
   const { orders, updateOrderStatusAPI, refreshOrders } = useOrders();
-  const { menuItems, categories, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData } = useMenu();
+  const { menuItems, categories, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData, toggleAvailability } = useMenu();
   const { tables, refreshTables } = useTables();
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'staff' | 'menu' | 'tables' | 'analytics'>('overview');
 
@@ -44,6 +44,7 @@ export default function AdminDashboardPage() {
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [isStaffListLoading, setIsStaffListLoading] = useState(false);
+  const [showAddStaffForm, setShowAddStaffForm] = useState(false);
 
   const loadStaffData = useCallback(async () => {
     setIsStaffListLoading(true);
@@ -329,6 +330,19 @@ export default function AdminDashboardPage() {
       }, 5000);
     } finally {
       setMenuActionLoading(false);
+    }
+  };
+
+  const handleToggleAvailability = async (itemId: number, currentStatus: boolean) => {
+    try {
+      const jwt = getJwtToken();
+      if (!jwt) throw new Error('Authentication required');
+      await toggleAvailability(itemId, !currentStatus, jwt);
+      setMenuActionSuccess(`Status updated successfully!`);
+      setTimeout(() => setMenuActionSuccess(null), 3000);
+    } catch (error) {
+      setMenuActionError(error instanceof Error ? error.message : 'Failed to update status');
+      setTimeout(() => setMenuActionError(null), 5000);
     }
   };
 
@@ -686,7 +700,6 @@ export default function AdminDashboardPage() {
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Items</th>
                     <th className="px-6 py-3 text-right text-sm font-semibold text-white">Amount</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border">
@@ -709,9 +722,6 @@ export default function AdminDashboardPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        <button className="text-brand-primary hover:text-orange-400 font-medium transition-colors">View Details</button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -723,96 +733,106 @@ export default function AdminDashboardPage() {
         {/* Staff Tab */}
         {activeTab === 'staff' && (
           <div>
-            <h2 className="section-title">Staff Management</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="section-title mb-0">Staff Management</h2>
+              <button
+                onClick={() => setShowAddStaffForm(!showAddStaffForm)}
+                className="btn-primary flex items-center gap-2"
+              >
+                {showAddStaffForm ? <><MdClose /> Close Form</> : <><MdAdd /> Add New Staff Member</>}
+              </button>
+            </div>
 
             {/* Add Staff Form */}
-            <div className="card mb-8">
-              <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-                <MdPerson /> Add New Staff Member
-              </h3>
+            {showAddStaffForm && (
+              <div className="card mb-8">
+                <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
+                  <MdPerson /> Add New Staff Member
+                </h3>
 
-              {staffError && (
-                <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-                  {staffError}
-                </div>
-              )}
+                {staffError && (
+                  <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
+                    {staffError}
+                  </div>
+                )}
 
-              {staffSuccess && (
-                <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm">
-                  {staffSuccess}
-                </div>
-              )}
+                {staffSuccess && (
+                  <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm">
+                    {staffSuccess}
+                  </div>
+                )}
 
-              <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Full Name *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={staffForm.name}
-                    onChange={handleStaffInputChange}
-                    placeholder="Enter full name"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Email *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={staffForm.email}
-                    onChange={handleStaffInputChange}
-                    placeholder="staff@restaurant.com"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Phone *</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={staffForm.phone}
-                    onChange={handleStaffInputChange}
-                    placeholder="+1 234 567 890"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Password *</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={staffForm.password}
-                    onChange={handleStaffInputChange}
-                    placeholder="Minimum 6 characters"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Role *</label>
-                  <select
-                    name="role"
-                    value={staffForm.role}
-                    onChange={handleStaffInputChange}
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary"
-                  >
-                    <option value="">Select role</option>
-                    <option value="2">Admin</option>
-                    <option value="3">Kitchen Staff</option>
-                    <option value="4">Waiter</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <button
-                    type="submit"
-                    disabled={staffLoading}
-                    className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {staffLoading ? 'Adding...' : <><MdPerson /> Add Staff</>}
-                  </button>
-                </div>
-              </form>
-            </div>
+                <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Full Name *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={staffForm.name}
+                      onChange={handleStaffInputChange}
+                      placeholder="Enter full name"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Email *</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={staffForm.email}
+                      onChange={handleStaffInputChange}
+                      placeholder="staff@restaurant.com"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Phone *</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={staffForm.phone}
+                      onChange={handleStaffInputChange}
+                      placeholder="+1 234 567 890"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Password *</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={staffForm.password}
+                      onChange={handleStaffInputChange}
+                      placeholder="Minimum 6 characters"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Role *</label>
+                    <select
+                      name="role"
+                      value={staffForm.role}
+                      onChange={handleStaffInputChange}
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary"
+                    >
+                      <option value="">Select role</option>
+                      <option value="2">Admin</option>
+                      <option value="3">Kitchen Staff</option>
+                      <option value="4">Waiter</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      disabled={staffLoading}
+                      className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {staffLoading ? 'Adding...' : <><MdPerson /> Add Staff</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* Staff List */}
             <h3 className="text-xl font-bold mb-4 text-white">Current Staff</h3>
@@ -903,8 +923,15 @@ export default function AdminDashboardPage() {
                   <p className="text-sm text-gray-500 mb-3 line-clamp-2">{item.description}</p>
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-2xl font-bold text-brand-primary">${item.price?.toFixed(2) || '0.00'}</p>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${item.available ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
-                      }`}>{item.available ? 'Available' : 'Out of Stock'}</span>
+                    <button
+                      onClick={() => handleToggleAvailability(item.id, item.available ?? item.isActive)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 ${(item.available ?? item.isActive)
+                        ? 'bg-green-600/20 text-green-400 border border-green-600/50 hover:bg-green-600/30'
+                        : 'bg-red-600/20 text-red-400 border border-red-600/50 hover:bg-red-600/30'
+                        }`}
+                    >
+                      {(item.available ?? item.isActive) ? 'Available' : 'Out of Stock'}
+                    </button>
                   </div>
                   <div className="flex gap-2">
                     <button

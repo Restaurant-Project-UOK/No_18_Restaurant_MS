@@ -7,6 +7,7 @@ import { useOrders } from '../../context/OrderContext';
 import { Order, OrderStatus, MenuItem } from '../../types';
 import { MdRestaurant, MdHistory, MdShoppingCart, MdPerson, MdCheckCircle, MdAdd, MdRemove, MdSearch, MdClose } from 'react-icons/md';
 import { getAccessToken } from '../../utils/cookieStorage';
+import { paymentService } from '../../services/paymentService';
 
 export default function CustomerHomePage() {
   const navigate = useNavigate();
@@ -38,8 +39,8 @@ export default function CustomerHomePage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load order history when requested
-  const handleShowHistory = async () => {
+  // Load my orders when requested (calls GET /api/orders/user)
+  const handleShowOrders = async () => {
     setShowOrderHistory(true);
     await loadUserHistory();
   };
@@ -165,7 +166,7 @@ export default function CustomerHomePage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <MdShoppingCart />
-                {checkoutStep === 'confirmation' ? 'Order Confirmed' : 'Your Order'}
+                {checkoutStep === 'confirmation' ? 'Checkout Complete' : 'Your Order'}
               </h2>
               <button
                 onClick={() => {
@@ -318,7 +319,7 @@ export default function CustomerHomePage() {
                         disabled={loading || cartLoading}
                         className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                       >
-                        Place Order
+                        Checkout
                       </button>
                     </div>
                   </div>
@@ -330,7 +331,7 @@ export default function CustomerHomePage() {
           <div className="flex-1 bg-brand-dark p-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <MdHistory /> Order History
+                <MdHistory /> My Orders
               </h2>
               <button
                 onClick={() => setShowOrderHistory(false)}
@@ -369,9 +370,35 @@ export default function CustomerHomePage() {
                         </p>
                       ))}
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400 text-xs">Total:</span>
-                      <span className="text-brand-primary font-semibold text-sm">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</span>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <span className="text-gray-400 text-xs">Total:</span>
+                        <p className="text-brand-primary font-bold text-sm">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</p>
+                      </div>
+
+                      {(order.status === OrderStatus.READY || order.status === OrderStatus.SERVED) && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              setLoading(true);
+                              const { approvalUrl } = await paymentService.createPayment({
+                                orderId: Number(order.id),
+                                amount: order.totalAmount ?? order.totalPrice ?? 0
+                              });
+                              // Redirect to PayPal
+                              window.location.href = approvalUrl;
+                            } catch {
+                              alert('Failed to initiate payment. Please try again.');
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          disabled={loading}
+                          className="px-4 py-1.5 bg-brand-primary hover:bg-orange-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                        >
+                          Pay Now
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -488,11 +515,11 @@ export default function CustomerHomePage() {
       {!showCart && !showOrderHistory && (
         <div className="bg-brand-darker border-t border-brand-border px-4 py-3 flex gap-3 flex-shrink-0">
           <button
-            onClick={handleShowHistory}
+            onClick={handleShowOrders}
             className="flex-1 py-2 px-3 bg-brand-dark hover:bg-black text-gray-300 border border-brand-border rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             disabled={loading || cartLoading}
           >
-            <MdHistory className="text-lg" /> History
+            <MdHistory className="text-lg" /> My Orders
           </button>
           <button
             onClick={() => setShowCart(true)}

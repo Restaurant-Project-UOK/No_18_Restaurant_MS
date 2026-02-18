@@ -121,7 +121,7 @@ const addCartItem = async (
  * @returns Updated cart item
  */
 const updateCartItem = async (
-  itemId: string,
+  itemId: string | number,
   updateData: UpdateCartItemRequest,
   accessToken?: string
 ): Promise<CartItemResponse> => {
@@ -156,7 +156,7 @@ const updateCartItem = async (
  * @param itemId - Cart item ID
  * @param accessToken - JWT access token
  */
-const deleteCartItem = async (itemId: string, accessToken?: string): Promise<void> => {
+const deleteCartItem = async (itemId: string | number, accessToken?: string): Promise<void> => {
   try {
     const token = accessToken || getAccessToken();
     if (!token) {

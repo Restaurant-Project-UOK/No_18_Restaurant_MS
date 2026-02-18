@@ -5,9 +5,9 @@ import { useOrders } from '../../context/OrderContext';
 import { useTables } from '../../context/TableContext';
 import { useMenu } from '../../context/MenuContext';
 import { waiterService, WaiterOrder } from '../../services/waiterService';
-import { Order, OrderStatus, MenuItem } from '../../types';
+import { Order, OrderStatus } from '../../types';
 import {
-  MdPerson, MdAdd, MdCheck, MdClose, MdChair, MdRestaurant,
+  MdPerson, MdCheck, MdClose, MdChair, MdRestaurant,
   MdTableBar, MdPayment, MdCheckCircle, MdAccessTime, MdAttachMoney,
   MdNotifications, MdDeliveryDining
 } from 'react-icons/md';
@@ -19,11 +19,10 @@ export default function WaiterDashboardPage() {
   const {
     orders,
     updateOrderStatusAPI,
-    createOrderAPI,
     loadingAPI,
     errorAPI
   } = useOrders();
-  const { tables, occupyTable, releaseTable } = useTables();
+  const { tables, releaseTable } = useTables();
   const { menuItems, categories } = useMenu();
 
   // Tab management
@@ -32,7 +31,6 @@ export default function WaiterDashboardPage() {
   // Table management
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [orderMode, setOrderMode] = useState<'view' | 'new'>('view');
-  const [newOrderItems, setNewOrderItems] = useState<Array<{ menuItem: MenuItem; quantity: number }>>([]);
   const [activeCategory, setActiveCategory] = useState<string>('');
 
   // Payment management
@@ -58,13 +56,26 @@ export default function WaiterDashboardPage() {
     try {
       const token = getAccessToken() || undefined;
       const received = await waiterService.getReceivedOrders(token);
-      // WaiterOrder from backend has no status field — all received orders are READY
       setReadyOrders(received);
-      setServedOrders([]); // Served orders come from order-service, not waiter-service
+      // We don't load servedOrders here as they come from OrderContext's orders state
     } catch (err) {
       console.error('[WaiterDashboard] Failed to load received orders:', err);
     }
   }, []);
+
+  // Filter served orders for payment from the global orders state
+  useEffect(() => {
+    const served = orders
+      .filter(o => o.status === OrderStatus.SERVED)
+      .map(o => ({
+        orderId: Number(o.id),
+        tableId: o.tableId,
+        items: o.items.map(item => ({ itemName: item.itemName, quantity: item.quantity })),
+        readyTime: o.createdAt,
+        totalAmount: o.totalAmount
+      }));
+    setServedOrders(served as unknown as WaiterOrder[]);
+  }, [orders]);
 
   // Load ready orders when component mounts
   useEffect(() => {
@@ -84,50 +95,14 @@ export default function WaiterDashboardPage() {
   };
 
   // ============================================
-  // ORDER CREATION HANDLERS
-  // ============================================
-
-  const handleAddItemToOrder = (menuItem: MenuItem) => {
-    const existing = newOrderItems.find((item) => item.menuItem.id === menuItem.id);
-    if (existing) {
-      setNewOrderItems(
-        newOrderItems.map((item) =>
-          item.menuItem.id === menuItem.id ? { ...item, quantity: item.quantity + 1 } : item
-        )
-      );
-    } else {
-      setNewOrderItems([...newOrderItems, { menuItem, quantity: 1 }]);
-    }
-  };
-
-  const handleRemoveItemFromOrder = (menuItemId: number) => {
-    setNewOrderItems(newOrderItems.filter((item) => item.menuItem.id !== menuItemId));
-  };
-
-  const handleSubmitOrder = async () => {
-    if (!selectedTable || newOrderItems.length === 0) return;
-
-    try {
-      const newOrder = await createOrderAPI(selectedTableData?.tableNumber ?? 0);
-      occupyTable(selectedTable, newOrder.id);
-      setNewOrderItems([]);
-      setOrderMode('view');
-    } catch (error) {
-      console.error('Failed to create order:', error);
-      alert('Failed to create order. Please try again.');
-    }
-  };
-
-  // ============================================
   // ORDER STATUS HANDLERS
   // ============================================
 
   const handleMarkAsServed = async (orderId: string) => {
     setServeLoading(orderId);
     try {
-      const token = getAccessToken() || undefined;
-      // Use waiterService: PATCH /api/waiter/orders/{id}/served
-      await waiterService.markOrderServed(orderId, token);
+      // Use OrderContext: PATCH /api/orders/{id}/status
+      await updateOrderStatusAPI(orderId, OrderStatus.SERVED);
       await loadReadyOrders();
     } catch (error) {
       console.error('Failed to mark as served:', error);
@@ -137,9 +112,7 @@ export default function WaiterDashboardPage() {
     }
   };
 
-  // Get waiting time - uses inline Date.now() at call site to avoid purity issues
   const getWaitingTime = (orderTime: string): string => {
-    // This function is called from render, so we calculate on each call
     const minutesAgo = Math.floor((new Date().getTime() - new Date(orderTime).getTime()) / 60000);
     if (minutesAgo < 1) return 'Just now';
     if (minutesAgo === 1) return '1 min';
@@ -161,10 +134,8 @@ export default function WaiterDashboardPage() {
     if (!paymentOrder) return;
 
     try {
-      // Mark order as served (SERVED is the final status in backend)
       await updateOrderStatusAPI(paymentOrder.id, OrderStatus.SERVED);
 
-      // Release table if it has one
       if (paymentOrder.tableId ?? paymentOrder.tableNumber) {
         const table = tables.find(t => t.tableNumber === (paymentOrder.tableId ?? paymentOrder.tableNumber));
         if (table) {
@@ -330,8 +301,6 @@ export default function WaiterDashboardPage() {
                       ))}
                     </div>
 
-                    {/* WaiterOrder from backend doesn't include totalPrice */}
-
                     <button
                       onClick={() => handleMarkAsServed(String(order.orderId))}
                       disabled={serveLoading === String(order.orderId)}
@@ -365,7 +334,6 @@ export default function WaiterDashboardPage() {
                       onClick={() => {
                         setSelectedTable(table.id);
                         setOrderMode('view');
-                        setNewOrderItems([]);
                       }}
                       className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${selectedTable === table.id
                         ? 'border-brand-primary bg-orange-900/20'
@@ -454,7 +422,7 @@ export default function WaiterDashboardPage() {
                               disabled={loadingAPI}
                               className="w-full py-2 px-4 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                              <MdAdd /> Add More Items
+                              <MdRestaurant /> View Menu
                             </button>
                           </div>
                         </div>
@@ -465,18 +433,26 @@ export default function WaiterDashboardPage() {
                         <button
                           onClick={() => setOrderMode('new')}
                           disabled={loadingAPI}
-                          className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
+                          className="px-6 py-2 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
                         >
-                          <MdAdd /> Create New Order
+                          <MdRestaurant /> View Menu
                         </button>
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="bg-brand-darker border border-brand-border rounded-lg p-6">
-                    <h3 className="text-2xl font-bold mb-4 text-white">
-                      <MdChair className="inline mr-2" /> New Order - Table {selectedTableData?.tableNumber}
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-2xl font-bold text-white">
+                        <MdRestaurant className="inline mr-2" /> Restaurant Menu
+                      </h3>
+                      <button
+                        onClick={() => setOrderMode('view')}
+                        className="p-2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        <MdClose className="text-2xl" />
+                      </button>
+                    </div>
 
                     {/* Category Tabs */}
                     <div className="mb-6 flex gap-2 overflow-x-auto pb-2 border-b border-brand-border">
@@ -495,12 +471,11 @@ export default function WaiterDashboardPage() {
                     </div>
 
                     {/* Menu Items */}
-                    <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                       {menuItemsByCategory.map((item) => (
-                        <button
+                        <div
                           key={item.id}
-                          onClick={() => handleAddItemToOrder(item)}
-                          className="p-3 bg-brand-dark border border-brand-border rounded-lg hover:bg-black hover:border-brand-primary transition-colors text-left"
+                          className="p-3 bg-brand-dark border border-brand-border rounded-lg text-left"
                         >
                           <div className="w-full h-24 bg-brand-dark flex items-center justify-center rounded-lg overflow-hidden mb-2">
                             {item.imageUrl ? (
@@ -511,62 +486,17 @@ export default function WaiterDashboardPage() {
                           </div>
                           <p className="font-semibold text-sm text-white">{item.name}</p>
                           <p className="text-brand-primary font-bold text-sm">${item.price.toFixed(2)}</p>
-                        </button>
+                        </div>
                       ))}
                     </div>
 
-                    {/* Order Summary */}
-                    {newOrderItems.length > 0 && (
-                      <div className="bg-brand-dark border border-brand-border p-4 rounded-lg mb-4">
-                        <h4 className="font-bold mb-3 text-white">Order Items:</h4>
-                        <div className="space-y-2 mb-4">
-                          {newOrderItems.map((item) => (
-                            <div key={item.menuItem.id} className="flex items-center justify-between">
-                              <div>
-                                <p className="font-semibold text-white">{item.quantity}x {item.menuItem.name}</p>
-                                <p className="text-sm text-brand-primary">${(item.menuItem.price * item.quantity).toFixed(2)}</p>
-                              </div>
-                              <button
-                                onClick={() => handleRemoveItemFromOrder(item.menuItem.id)}
-                                className="text-red-400 hover:text-red-300 font-bold transition-colors disabled:opacity-50"
-                                disabled={loadingAPI}
-                              >
-                                <MdClose />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="border-t border-brand-border pt-3 flex justify-between font-bold mb-4 text-white">
-                          <span>Total:</span>
-                          <span className="text-brand-primary">
-                            ${newOrderItems
-                              .reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0)
-                              .toFixed(2)}
-                          </span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setOrderMode('view');
-                              setNewOrderItems([]);
-                            }}
-                            disabled={loadingAPI}
-                            className="flex-1 py-2 px-4 bg-brand-darker hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
-                          >
-                            <MdClose /> Cancel
-                          </button>
-                          <button
-                            onClick={handleSubmitOrder}
-                            disabled={loadingAPI}
-                            className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
-                          >
-                            <MdCheck /> Submit Order
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    {/* Back Button */}
+                    <button
+                      onClick={() => setOrderMode('view')}
+                      className="w-full py-3 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors"
+                    >
+                      Back to Table
+                    </button>
                   </div>
                 )}
               </div>
@@ -727,8 +657,6 @@ export default function WaiterDashboardPage() {
                           </div>
                         )}
                       </div>
-
-                      {/* WaiterOrder from backend doesn't include totalPrice */}
                     </button>
                   ))}
                 </div>
@@ -746,4 +674,3 @@ export default function WaiterDashboardPage() {
     </div>
   );
 }
-

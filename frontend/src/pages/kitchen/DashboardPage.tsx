@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { kitchenService, KitchenOrder } from '../../services/kitchenService';
+import { waiterService, WaiterOrder } from '../../services/waiterService';
 import { MdNewReleases, MdWarning, MdCheckCircle, MdPerson, MdRefresh } from 'react-icons/md';
 import { FaChalkboardUser } from 'react-icons/fa6';
 import { getAccessToken } from '../../utils/cookieStorage';
@@ -13,6 +14,7 @@ export default function KitchenDashboardPage() {
   const { user } = useAuth();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>([]);
+  const [readyToServe, setReadyToServe] = useState<WaiterOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,15 +23,18 @@ export default function KitchenDashboardPage() {
     o.status === OrderStatus.CREATED || o.status === OrderStatus.CONFIRMED
   );
   const preparingOrders = kitchenOrders.filter(o => o.status === OrderStatus.PREPARING);
-  const readyOrders = kitchenOrders.filter(o => o.status === OrderStatus.READY);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const token = getAccessToken() || undefined;
-      const orders = await kitchenService.getKitchenOrders(token);
-      setKitchenOrders(orders);
+      const [kOrders, rOrders] = await Promise.all([
+        kitchenService.getKitchenOrders(token),
+        waiterService.getReceivedOrders(token)
+      ]);
+      setKitchenOrders(kOrders);
+      setReadyToServe(rOrders);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load orders');
     } finally {
@@ -207,23 +212,23 @@ export default function KitchenDashboardPage() {
           {/* Ready for Pickup */}
           <div className="bg-green-900/20 border-2 border-green-700 rounded-lg p-6">
             <h2 className="text-2xl font-bold text-green-300 mb-4 flex items-center gap-2">
-              <MdCheckCircle /> Ready ({readyOrders.length})
+              <MdCheckCircle /> Ready ({readyToServe.length})
             </h2>
             <div className="space-y-4">
-              {readyOrders.length === 0 ? (
+              {readyToServe.length === 0 ? (
                 <p className="text-gray-400 text-center py-8">All caught up!</p>
               ) : (
-                readyOrders.map((order) => (
+                readyToServe.map((order) => (
                   <div
                     key={order.orderId}
                     className="p-4 rounded-lg bg-brand-darker border border-green-700"
                   >
-                    <p className="text-lg font-bold text-green-300">Order #{order.orderId.slice(-6)}</p>
+                    <p className="text-lg font-bold text-green-300">Order #{String(order.orderId).slice(-6)}</p>
                     <p className="text-sm text-gray-400 mb-2">Table #{order.tableId ?? 'N/A'}</p>
                     <ul className="text-sm text-gray-300 mb-3 space-y-1">
-                      {order.items.map((item) => (
-                        <li key={item.id}>
-                          <span className="font-semibold">{item.quantity}x</span> {item.name}
+                      {order.items.map((item, idx) => (
+                        <li key={idx}>
+                          <span className="font-semibold">{item.quantity}x</span> {item.itemName}
                         </li>
                       ))}
                     </ul>
