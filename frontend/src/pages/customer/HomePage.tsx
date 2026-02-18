@@ -604,10 +604,10 @@ export default function CustomerHomePage() {
         <>
           <button
             onClick={() => setShowPromotions(true)}
-            className="fixed bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 bg-gradient-to-r from-pink-500 to-rose-500 rounded-full shadow-lg shadow-pink-500/30 flex items-center justify-center text-white hover:scale-110 transition-transform z-40 animate-bounce"
+            className="fixed left-4 top-1/2 -translate-y-1/2 w-14 h-14 bg-brand-primary rounded-full shadow-lg shadow-brand-primary/30 flex items-center justify-center text-white hover:scale-110 transition-transform z-40 animate-pulse"
           >
             <MdLocalOffer className="text-2xl" />
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 text-black text-xs font-bold rounded-full flex items-center justify-center border-2 border-brand-dark">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-brand-primary text-xs font-bold rounded-full flex items-center justify-center border-2 border-brand-dark">
               {promotions.length}
             </span>
           </button>
