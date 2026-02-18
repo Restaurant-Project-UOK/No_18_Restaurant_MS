@@ -22,6 +22,8 @@ import com.example.auth_service.Security.JwtService;
 import com.example.auth_service.Service.AuthService;
 import com.example.auth_service.Service.TokenBlacklistService;
 import com.example.auth_service.Exception.UserAlreadyExistsException;
+import com.example.auth_service.Exception.UserNotFoundException;
+import com.example.auth_service.Exception.InvalidCredentialsException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -80,10 +82,16 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public TokenResponseDto login(LoginRequestDto dto) {
         User user = userRepository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> {
+                    // Log non-sensitive details for debugging
+                    log.error("Login failed - user not found: email={}", dto.getEmail());
+                    return new UserNotFoundException("User not found");
+                });
 
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            // Log attempted login (avoid logging the password)
+            log.error("Login failed - invalid credentials: email={}, tableId={}", dto.getEmail(), dto.getTableId());
+            throw new InvalidCredentialsException("Invalid password");
         }
 
         int tableId =  dto.getTableId();
@@ -159,8 +167,11 @@ public class AuthServiceImpl implements AuthService {
     public void logoutUser(Long userId, String token) {
         // Get user
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        
+                .orElseThrow(() -> {
+                    log.error("Logout failed - user not found: userId={}", userId);
+                    return new UserNotFoundException("User not found");
+                });
+
         // Update user activity - mark active session as logged out
         UserActivity activeSession = userActivityRepository.findTopByUserAndLogoutAtIsNullOrderByLoginAtDesc(user);
         if (activeSession != null) {
@@ -184,7 +195,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void createStaff(CreateStaffRequestDto dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            log.error("Admin createStaff failed - email already in use: email={}, fullName={}, phone={}, role={}",
+                    dto.getEmail(), dto.getFullName(), dto.getPhone(), dto.getRole());
+            throw new UserAlreadyExistsException("Email already in use");
         }
 
         // Validate role
