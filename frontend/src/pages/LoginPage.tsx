@@ -114,6 +114,15 @@ export default function LoginPage() {
       }
 
       // 3️⃣ No valid session — show the login form
+      // If user navigated to /login directly but was previously on customer flow, 
+      // check if we should show customer login instead of default staff logic
+      const storedTableId = document.cookie.match(/(?:^|;\s*)tableId=(\d+)/)?.[1];
+      if (storedTableId && !tableIdParam && !staffParam) {
+        // Redirect to customer login with tableId if we have a cookie but no URL param
+        // This prevents falling back to "staff login" view by default
+        navigate(`/login?tableId=${storedTableId}`, { replace: true });
+        return;
+      }
       setCheckingToken(false);
     };
 
@@ -238,6 +247,16 @@ export default function LoginPage() {
               </div>
             </div>
           </form>
+
+          <div className="text-center pt-8 border-t border-brand-border mt-8">
+            <p className="text-xs text-gray-500 mb-2">Customer Access</p>
+            <button
+              onClick={() => navigate('/login?tableId=' + (document.cookie.match(/(?:^|;\s*)tableId=(\d+)/)?.[1] || '1'))}
+              className="text-gray-400 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
+            >
+              <MdRestaurant /> Customer Login
+            </button>
+          </div>
         </div>
       ) : (
         /* CUSTOMER LOGIN */
@@ -316,6 +335,16 @@ export default function LoginPage() {
               className="text-brand-primary hover:text-brand-primary/80 font-semibold transition-colors"
             >
               Create Account
+            </button>
+          </div>
+
+          <div className="text-center pt-8 border-t border-brand-border">
+            <p className="text-xs text-gray-500 mb-2">Employee Access</p>
+            <button
+              onClick={() => navigate('/login?staff=true')}
+              className="text-gray-400 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
+            >
+              <MdLogin /> Staff Portal
             </button>
           </div>
         </div>
