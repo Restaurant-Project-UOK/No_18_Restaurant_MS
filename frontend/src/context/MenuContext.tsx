@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useMemo, ReactNode, useEffect } from 'react';
 import { MenuItem, MenuCategory } from '../types';
 import { menuService } from '../services/menuService';
+import { useAuth } from './AuthContext';
 
 interface MenuContextType {
   menuItems: MenuItem[];
@@ -24,11 +25,15 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
 
-  // Load initial data on mount
+  // Load initial data on mount — only when authenticated
   useEffect(() => {
-    refreshMenuData();
-  }, []);
+    if (isAuthenticated) {
+      refreshMenuData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const refreshMenuData = async () => {
     setLoading(true);

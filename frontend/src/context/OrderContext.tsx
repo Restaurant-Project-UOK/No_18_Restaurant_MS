@@ -30,7 +30,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingAPI, setLoadingAPI] = useState(false);
   const [errorAPI, setErrorAPI] = useState<string | null>(null);
-  const { getJwtToken } = useAuth();
+  const { getJwtToken, isAuthenticated } = useAuth();
 
   const refreshOrders = useCallback(async () => {
     setLoadingAPI(true);
@@ -64,10 +64,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [getJwtToken]);
 
-  // Load orders on mount
+  // Load orders on mount — only when authenticated
   useEffect(() => {
-    refreshOrders();
-  }, [refreshOrders]);
+    if (isAuthenticated) {
+      refreshOrders();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const addOrder = useCallback((order: Order) => {
     setOrders((prev) => [...prev, order]);
