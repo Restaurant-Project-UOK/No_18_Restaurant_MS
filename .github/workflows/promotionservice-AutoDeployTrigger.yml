@@ -27,8 +27,4 @@ jobs:
           docker push res18.azurecr.io/promotion-service:${{ github.sha }}
 
       - name: Deploy to Azure Container Apps
-        run: |
-          az containerapp update \
-            --name promotion-service \
-            --resource-group ransini-02 \
-            --image res18.azurecr.io/promotion-service:${{ github.sha }}
+        run: az containerapp update --name promotion-service --resource-group ransini-02 --image res18.azurecr.io/promotion-service:${{ github.sha }}
