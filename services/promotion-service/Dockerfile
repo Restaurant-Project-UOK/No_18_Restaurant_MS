@@ -1,18 +1,15 @@
-# Stage 1: Builder
+# Multi-stage Dockerfile for promotion-service (Spring Boot, Java 17)
+# Builder: use Maven to produce the executable jar
 FROM maven:3.9.4-eclipse-temurin-17 AS builder
 WORKDIR /workspace
+COPY . ./
+RUN chmod +x mvnw || true
+RUN ./mvnw -B -DskipTests package
 
-# Step 1: Copy pom.xml and download dependencies
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Step 2: Copy source code and build
-COPY src ./src
-RUN mvn -B -DskipTests package
-
-# Stage 2: Runtime image
+# Runtime image
 FROM eclipse-temurin:17-jdk-jammy
 WORKDIR /app
+ARG JAR_FILE=target/*.jar
 COPY --from=builder /workspace/target/*.jar /app/app.jar
-EXPOSE 8080
+EXPOSE 8091
 ENTRYPOINT ["java","-jar","/app/app.jar"]

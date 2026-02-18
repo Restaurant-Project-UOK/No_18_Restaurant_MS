@@ -9,5 +9,14 @@ import java.util.List;
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 
+    /**
+     * Find all categories ordered by sort_order ascending
+     */
+    List<Category> findAllByOrderBySortOrderAsc();
+
+    /**
+     * Check if a category with the given name exists
+     */
+    boolean existsByName(String name);
 }
 
