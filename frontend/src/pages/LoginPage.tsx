@@ -68,6 +68,11 @@ export default function LoginPage() {
   // ----------------------------------------------------------
   useEffect(() => {
     const handleExistingSession = async () => {
+      // If tableId is in URL, store it immediately so it persists even if user navigates away/refresh
+      if (tableIdParam) {
+        setTableIdCookie(parseInt(tableIdParam, 10));
+      }
+
       const accessToken = getAccessToken();
       const refreshTokenStored = getRefreshToken();
 
@@ -192,8 +197,8 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-24 h-24 bg-brand-primary rounded-lg mb-6">
               <MdRestaurant className="text-5xl text-white" />
             </div>
-            <h1 className="text-5xl font-bold mb-2">Restaurant Pro</h1>
-            <p className="text-gray-400 text-lg">Staff Portal</p>
+            <h1 className="text-5xl font-bold mb-2 text-white">No 18 Restaurant</h1>
+            <p className="text-gray-400 text-lg">Colombo 07 - Staff Portal</p>
           </div>
 
           <form onSubmit={handleLogin} className="card space-y-6">
@@ -249,15 +254,7 @@ export default function LoginPage() {
             </div>
           </form>
 
-          <div className="text-center pt-8 border-t border-brand-border mt-8">
-            <p className="text-xs text-gray-500 mb-2">Customer Access</p>
-            <button
-              onClick={() => navigate('/login?tableId=' + (document.cookie.match(/(?:^|;\s*)tableId=(\d+)/)?.[1] || '1'))}
-              className="text-gray-400 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
-            >
-              <MdRestaurant /> Customer Login
-            </button>
-          </div>
+
         </div>
       ) : (
         /* CUSTOMER LOGIN */
@@ -266,8 +263,8 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-20 h-20 bg-brand-primary rounded-lg mb-4">
               <MdRestaurant className="text-4xl text-white" />
             </div>
-            <h1 className="text-4xl font-bold">Restaurant Pro</h1>
-            <p className="text-gray-400 mt-2">Customer Service</p>
+            <h1 className="text-4xl font-bold text-white">No 18 Restaurant</h1>
+            <p className="text-gray-400 mt-2 text-lg">Colombo 07 - Customer Service</p>
           </div>
 
           {tableIdParam && (
@@ -339,15 +336,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="text-center pt-8 border-t border-brand-border">
-            <p className="text-xs text-gray-500 mb-2">Employee Access</p>
-            <button
-              onClick={() => navigate('/login?staff=true')}
-              className="text-gray-400 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
-            >
-              <MdLogin /> Staff Portal
-            </button>
-          </div>
+
         </div>
       )}
     </div>

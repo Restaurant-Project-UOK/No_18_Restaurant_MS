@@ -87,10 +87,14 @@ export function setUserId(id: string): void {
     setCookie(KEYS.USER_ID, id);
 }
 
-/** Clear all auth cookies */
+/** Clear all auth cookies and any other cookies */
 export function clearAuthStorage(): void {
-    removeCookie(KEYS.ACCESS_TOKEN);
-    removeCookie(KEYS.REFRESH_TOKEN);
-    removeCookie(KEYS.USER);
-    removeCookie(KEYS.USER_ID);
+    const cookies = document.cookie.split(';');
+
+    for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i];
+        const eqPos = cookie.indexOf('=');
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        removeCookie(name);
+    }
 }

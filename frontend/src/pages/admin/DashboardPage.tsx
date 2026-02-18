@@ -5,17 +5,18 @@ import { useOrders } from '../../context/OrderContext';
 import { useMenu } from '../../context/MenuContext';
 import { useTables } from '../../context/TableContext';
 import { OrderStatus, UserRole, Staff, MenuItem } from '../../types';
-import { MdDashboard, MdReceiptLong, MdPeople, MdRestaurant, MdChair, MdEdit, MdPerson, MdClose, MdSave, MdShowChart, MdTrendingUp, MdAccessTime, MdCheckCircle, MdError, MdAdd, MdDelete, MdImage } from 'react-icons/md';
+import { MdDashboard, MdReceiptLong, MdPeople, MdRestaurant, MdEdit, MdPerson, MdClose, MdSave, MdShowChart, MdTrendingUp, MdAccessTime, MdCheckCircle, MdError, MdAdd, MdDelete, MdImage, MdLocalOffer } from 'react-icons/md';
 import { analyticsService, DailySummaryResponse, TopItem, ForecastItem, HourlyBreakdown } from '../../services/analyticsService';
 import { staffService } from '../../services/staffService';
+import { promotionService, Promotion } from '../../services/promotionService';
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user, addStaff, getJwtToken } = useAuth();
   const { orders, updateOrderStatusAPI, refreshOrders } = useOrders();
-  const { menuItems, categories, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData } = useMenu();
+  const { menuItems, categories, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData, toggleAvailability } = useMenu();
   const { tables, refreshTables } = useTables();
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'staff' | 'menu' | 'tables' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'staff' | 'menu' | 'promotions' | 'analytics'>('overview');
 
   // Analytics state
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -44,6 +45,8 @@ export default function AdminDashboardPage() {
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [isStaffListLoading, setIsStaffListLoading] = useState(false);
+  const [showAddStaffForm, setShowAddStaffForm] = useState(false);
+  const [staffFilter, setStaffFilter] = useState<'all' | UserRole>('all');
 
   const loadStaffData = useCallback(async () => {
     setIsStaffListLoading(true);
@@ -58,12 +61,145 @@ export default function AdminDashboardPage() {
     }
   }, [getJwtToken]);
 
-  // Load staff data
+
+
+  // Promotions State & Logic
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [isPromotionsLoading, setIsPromotionsLoading] = useState(false);
+  const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [editingPromotionId, setEditingPromotionId] = useState<number | null>(null);
+  const [promotionForm, setPromotionForm] = useState({
+    name: '',
+    discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED',
+    discountValue: '',
+    startAt: '',
+    endAt: '',
+  });
+  const [promotionActionLoading, setPromotionActionLoading] = useState(false);
+  const [promotionActionError, setPromotionActionError] = useState<string | null>(null);
+  const [promotionActionSuccess, setPromotionActionSuccess] = useState<string | null>(null);
+
+  const loadPromotionsData = useCallback(async () => {
+    setIsPromotionsLoading(true);
+    try {
+      const jwt = getJwtToken() || undefined;
+      const data = await promotionService.getAllPromotions(jwt);
+      setPromotions(data);
+    } catch (error) {
+      console.error('Failed to load promotions:', error);
+    } finally {
+      setIsPromotionsLoading(false);
+    }
+  }, [getJwtToken]);
+
+  // Load tab data
   useEffect(() => {
     if (activeTab === 'staff') {
       loadStaffData();
+    } else if (activeTab === 'promotions') {
+      loadPromotionsData();
     }
-  }, [activeTab, loadStaffData]);
+  }, [activeTab, loadStaffData, loadPromotionsData]);
+
+  const handleOpenPromotionModal = (promotion?: Promotion) => {
+    setPromotionActionError(null);
+    setPromotionActionSuccess(null);
+    if (promotion) {
+      setEditingPromotionId(promotion.id);
+      setPromotionForm({
+        name: promotion.name,
+        discountType: promotion.discountType,
+        discountValue: promotion.discountValue.toString(),
+        startAt: promotion.startAt,
+        endAt: promotion.endAt,
+      });
+    } else {
+      setEditingPromotionId(null);
+      // Default dates: Start now, end in 7 days
+      const now = new Date();
+      const end = new Date();
+      end.setDate(end.getDate() + 7);
+
+      // ISO string format without timezone (YYYY-MM-DDTHH:mm:ss) to match input type="datetime-local"
+      const formatDateForInput = (date: Date) => {
+        return date.toISOString().slice(0, 19);
+      };
+
+      setPromotionForm({
+        name: '',
+        discountType: 'PERCENTAGE',
+        discountValue: '',
+        startAt: formatDateForInput(now),
+        endAt: formatDateForInput(end),
+      });
+    }
+    setShowPromotionModal(true);
+  };
+
+  const handleClosePromotionModal = () => {
+    setShowPromotionModal(false);
+    setEditingPromotionId(null);
+    setPromotionActionError(null);
+    setPromotionActionSuccess(null);
+  };
+
+  const handleSavePromotion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPromotionActionLoading(true);
+    setPromotionActionError(null);
+    setPromotionActionSuccess(null);
+
+    try {
+      if (!promotionForm.name || !promotionForm.discountValue || !promotionForm.startAt || !promotionForm.endAt) {
+        throw new Error('All fields are required');
+      }
+
+      const jwt = getJwtToken() || undefined;
+      // Ensure we send valid CreatePromotionRequest / UpdatePromotionRequest payload
+      const payload = {
+        name: promotionForm.name,
+        discountType: promotionForm.discountType,
+        discountValue: parseFloat(promotionForm.discountValue),
+        startAt: promotionForm.startAt, // Assuming input returns ISO format or close to it
+        endAt: promotionForm.endAt,
+      };
+
+      if (editingPromotionId) {
+        await promotionService.updatePromotion(editingPromotionId, payload, jwt);
+        setPromotionActionSuccess('Promotion updated successfully');
+      } else {
+        await promotionService.createPromotion(payload, jwt);
+        setPromotionActionSuccess('Promotion created successfully');
+      }
+
+      await loadPromotionsData();
+
+      // Close modal after short delay on success
+      setTimeout(() => {
+        handleClosePromotionModal();
+      }, 1500);
+    } catch (error) {
+      setPromotionActionError(error instanceof Error ? error.message : 'Failed to save promotion');
+    } finally {
+      setPromotionActionLoading(false);
+    }
+  };
+
+  const handleDeletePromotion = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this promotion? This action cannot be undone.')) return;
+
+    setPromotionActionLoading(true);
+    try {
+      const jwt = getJwtToken() || undefined;
+      await promotionService.deletePromotion(id, jwt);
+      await loadPromotionsData();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Failed to delete promotion');
+    } finally {
+      setPromotionActionLoading(false);
+    }
+  };
 
   // Refresh data once when the overview tab is first loaded.
   // Context providers already load data on mount, so this is a one-time refresh
@@ -148,9 +284,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleEditStaff = (staff: Staff) => {
-    setEditingStaff(staff);
-  };
+
 
   const handleUpdateStaffStatus = (staffId: string, newStatus: 'active' | 'inactive' | 'on-break') => {
     setStaffList((prev) =>
@@ -281,7 +415,7 @@ export default function AdminDashboardPage() {
         allergens: [],
       };
 
-      formData.append('menuItem', JSON.stringify(menuItemData));
+      formData.append('menuItem', new Blob([JSON.stringify(menuItemData)], { type: 'application/json' }));
       formData.append('image', selectedImage);
 
       // Create menu item
@@ -329,6 +463,19 @@ export default function AdminDashboardPage() {
       }, 5000);
     } finally {
       setMenuActionLoading(false);
+    }
+  };
+
+  const handleToggleAvailability = async (itemId: number, currentStatus: boolean) => {
+    try {
+      const jwt = getJwtToken();
+      if (!jwt) throw new Error('Authentication required');
+      await toggleAvailability(itemId, !currentStatus, jwt);
+      setMenuActionSuccess(`Status updated successfully!`);
+      setTimeout(() => setMenuActionSuccess(null), 3000);
+    } catch (error) {
+      setMenuActionError(error instanceof Error ? error.message : 'Failed to update status');
+      setTimeout(() => setMenuActionError(null), 5000);
     }
   };
 
@@ -387,7 +534,7 @@ export default function AdminDashboardPage() {
       {/* Navigation Tabs */}
       <div className="bg-brand-darker border-b border-brand-border">
         <div className="max-w-7xl mx-auto px-4 flex gap-6">
-          {(['overview', 'analytics', 'orders', 'staff', 'menu', 'tables'] as const).map((tab) => (
+          {(['overview', 'analytics', 'orders', 'staff', 'menu', 'promotions'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -401,7 +548,7 @@ export default function AdminDashboardPage() {
               {tab === 'orders' && <><MdReceiptLong /> Orders</>}
               {tab === 'staff' && <><MdPeople /> Staff</>}
               {tab === 'menu' && <><MdRestaurant /> Menu</>}
-              {tab === 'tables' && <><MdChair /> Tables</>}
+              {tab === 'promotions' && <><MdLocalOffer /> Promotions</>}
             </button>
           ))}
         </div>
@@ -686,7 +833,6 @@ export default function AdminDashboardPage() {
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Items</th>
                     <th className="px-6 py-3 text-right text-sm font-semibold text-white">Amount</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border">
@@ -709,9 +855,6 @@ export default function AdminDashboardPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        <button className="text-brand-primary hover:text-orange-400 font-medium transition-colors">View Details</button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -723,138 +866,232 @@ export default function AdminDashboardPage() {
         {/* Staff Tab */}
         {activeTab === 'staff' && (
           <div>
-            <h2 className="section-title">Staff Management</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="section-title mb-0">Staff Management</h2>
+              <button
+                onClick={() => setShowAddStaffForm(!showAddStaffForm)}
+                className="btn-primary flex items-center gap-2"
+              >
+                {showAddStaffForm ? <><MdClose /> Close Form</> : <><MdAdd /> Add New Staff Member</>}
+              </button>
+            </div>
 
             {/* Add Staff Form */}
-            <div className="card mb-8">
-              <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-                <MdPerson /> Add New Staff Member
-              </h3>
+            {showAddStaffForm && (
+              <div className="card mb-8">
+                <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
+                  <MdPerson /> Add New Staff Member
+                </h3>
 
-              {staffError && (
-                <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-                  {staffError}
-                </div>
-              )}
+                {staffError && (
+                  <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
+                    {staffError}
+                  </div>
+                )}
 
-              {staffSuccess && (
-                <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm">
-                  {staffSuccess}
-                </div>
-              )}
+                {staffSuccess && (
+                  <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm">
+                    {staffSuccess}
+                  </div>
+                )}
 
-              <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Full Name *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={staffForm.name}
-                    onChange={handleStaffInputChange}
-                    placeholder="Enter full name"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Email *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={staffForm.email}
-                    onChange={handleStaffInputChange}
-                    placeholder="staff@restaurant.com"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Phone *</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={staffForm.phone}
-                    onChange={handleStaffInputChange}
-                    placeholder="+1 234 567 890"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Password *</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={staffForm.password}
-                    onChange={handleStaffInputChange}
-                    placeholder="Minimum 6 characters"
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Role *</label>
-                  <select
-                    name="role"
-                    value={staffForm.role}
-                    onChange={handleStaffInputChange}
-                    className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary"
-                  >
-                    <option value="">Select role</option>
-                    <option value="2">Admin</option>
-                    <option value="3">Kitchen Staff</option>
-                    <option value="4">Waiter</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <button
-                    type="submit"
-                    disabled={staffLoading}
-                    className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {staffLoading ? 'Adding...' : <><MdPerson /> Add Staff</>}
-                  </button>
-                </div>
-              </form>
-            </div>
+                <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Full Name *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={staffForm.name}
+                      onChange={handleStaffInputChange}
+                      placeholder="Enter full name"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Email *</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={staffForm.email}
+                      onChange={handleStaffInputChange}
+                      placeholder="staff@restaurant.com"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Phone *</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={staffForm.phone}
+                      onChange={handleStaffInputChange}
+                      placeholder="+1 234 567 890"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Password *</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={staffForm.password}
+                      onChange={handleStaffInputChange}
+                      placeholder="Minimum 6 characters"
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Role *</label>
+                    <select
+                      name="role"
+                      value={staffForm.role}
+                      onChange={handleStaffInputChange}
+                      className="w-full px-4 py-2 bg-brand-darker border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary"
+                    >
+                      <option value="">Select role</option>
+                      <option value="2">Admin</option>
+                      <option value="3">Kitchen Staff</option>
+                      <option value="4">Waiter</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      disabled={staffLoading}
+                      className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {staffLoading ? 'Adding...' : <><MdPerson /> Add Staff</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* Staff List */}
             <h3 className="text-xl font-bold mb-4 text-white">Current Staff</h3>
+
+            {/* Role Filter */}
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+              <button
+                onClick={() => setStaffFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${staffFilter === 'all'
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-brand-darker border border-brand-border text-gray-400 hover:text-white'
+                  }`}
+              >
+                All Users
+              </button>
+              <button
+                onClick={() => setStaffFilter(UserRole.CUSTOMER)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${staffFilter === UserRole.CUSTOMER
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-brand-darker border border-brand-border text-gray-400 hover:text-white'
+                  }`}
+              >
+                Customers
+              </button>
+              <button
+                onClick={() => setStaffFilter(UserRole.ADMIN)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${staffFilter === UserRole.ADMIN
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-brand-darker border border-brand-border text-gray-400 hover:text-white'
+                  }`}
+              >
+                Admins
+              </button>
+              <button
+                onClick={() => setStaffFilter(UserRole.KITCHEN)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${staffFilter === UserRole.KITCHEN
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-brand-darker border border-brand-border text-gray-400 hover:text-white'
+                  }`}
+              >
+                Kitchen Staff
+              </button>
+              <button
+                onClick={() => setStaffFilter(UserRole.WAITER)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${staffFilter === UserRole.WAITER
+                  ? 'bg-brand-primary text-white'
+                  : 'bg-brand-darker border border-brand-border text-gray-400 hover:text-white'
+                  }`}
+              >
+                Waiters
+              </button>
+            </div>
+
             {isStaffListLoading ? (
               <div className="flex items-center justify-center py-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
               </div>
-            ) : staffList.length === 0 ? (
-              <p className="text-gray-400 text-center py-10 bg-brand-darker rounded-lg border border-brand-border">No staff members found.</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {staffList.map((staff) => (
-                  <div key={String(staff.id)} className="card">
-                    <div className="mb-3">
-                      <p className="text-lg font-bold text-white">{staff.name || staff.profile?.fullName || staff.fullName || 'No Name'}</p>
-                      <p className="text-sm text-gray-400">{staff.email}</p>
-                    </div>
-                    <div className="space-y-2 mb-4 text-sm">
-                      <p className="text-gray-300">
-                        <span className="font-medium">Role:</span>
-                        <span className="flex items-center gap-1 ml-1 inline-flex">
-                          {staff.role === 1 ? '👤 Customer' : staff.role === 2 ? '👨‍💼 Admin' : staff.role === 3 ? '👨‍🍳 Kitchen' : staff.role === 4 ? '🤵 Waiter' : `Role ${staff.role}`}
-                        </span>
-                      </p>
-                      <p className="text-gray-300"><span className="font-medium">Phone:</span> {staff.phone || staff.profile?.phone || 'N/A'}</p>
-                      {staff.status && (
-                        <p className="text-gray-300">
-                          <span className="font-medium">Status:</span>
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ml-1 ${(staff.status as string).toLowerCase() === 'active' ? 'bg-green-900/30 text-green-400' :
-                            (staff.status as string).toLowerCase() === 'inactive' ? 'bg-gray-900/30 text-gray-400' :
-                              'bg-yellow-900/30 text-yellow-400'
-                            }`}>
-                            {staff.status}
-                          </span>
-                        </p>
+              <div className="bg-brand-darker border border-brand-border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-black/20 text-gray-400 text-xs uppercase font-semibold">
+                      <tr>
+                        <th className="px-6 py-3 text-left">Name</th>
+                        <th className="px-6 py-3 text-left">Role</th>
+                        <th className="px-6 py-3 text-left">Email</th>
+                        <th className="px-6 py-3 text-left">Phone</th>
+                        <th className="px-6 py-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-brand-border">
+                      {staffList
+                        .filter(staff => staffFilter === 'all' || staff.role === staffFilter)
+                        .length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                            No users found for this filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        staffList
+                          .filter(staff => staffFilter === 'all' || staff.role === staffFilter)
+                          .map((staff) => (
+                            <tr key={String(staff.id)} className="hover:bg-white/5 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-bold text-xs">
+                                    {(staff.name || staff.profile?.fullName || staff.fullName || '?').charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="font-medium text-white">{staff.name || staff.profile?.fullName || staff.fullName || 'No Name'}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${staff.role === UserRole.ADMIN ? 'bg-purple-900/30 text-purple-400 border border-purple-700/50' :
+                                  staff.role === UserRole.KITCHEN ? 'bg-orange-900/30 text-orange-400 border border-orange-700/50' :
+                                    staff.role === UserRole.WAITER ? 'bg-blue-900/30 text-blue-400 border border-blue-700/50' :
+                                      'bg-gray-800 text-gray-400 border border-gray-700'
+                                  }`}>
+                                  {staff.role === UserRole.ADMIN ? 'Admin' :
+                                    staff.role === UserRole.KITCHEN ? 'Kitchen' :
+                                      staff.role === UserRole.WAITER ? 'Waiter' :
+                                        'Customer'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-400">
+                                {staff.email}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-400 font-mono">
+                                {staff.phone || staff.profile?.phone || '-'}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                {staff.status && (
+                                  <span className={`px-2 py-1 rounded text-xs font-medium capitalize border ${String(staff.status).toLowerCase() === 'active' ? 'bg-green-900/20 text-green-400 border-green-900' :
+                                    String(staff.status).toLowerCase() === 'inactive' ? 'bg-red-900/20 text-red-400 border-red-900' :
+                                      'bg-yellow-900/20 text-yellow-400 border-yellow-900'
+                                    }`}>
+                                    {staff.status}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
                       )}
-                    </div>
-                    <button onClick={() => handleEditStaff(staff)} className="btn-primary w-full text-sm flex items-center justify-center gap-1">
-                      <MdEdit /> Edit
-                    </button>
-                  </div>
-                ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -903,8 +1140,15 @@ export default function AdminDashboardPage() {
                   <p className="text-sm text-gray-500 mb-3 line-clamp-2">{item.description}</p>
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-2xl font-bold text-brand-primary">${item.price?.toFixed(2) || '0.00'}</p>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${item.available ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
-                      }`}>{item.available ? 'Available' : 'Out of Stock'}</span>
+                    <button
+                      onClick={() => handleToggleAvailability(item.id, item.available ?? item.isActive)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 ${(item.available ?? item.isActive)
+                        ? 'bg-green-600/20 text-green-400 border border-green-600/50 hover:bg-green-600/30'
+                        : 'bg-red-600/20 text-red-400 border border-red-600/50 hover:bg-red-600/30'
+                        }`}
+                    >
+                      {(item.available ?? item.isActive) ? 'Available' : 'Out of Stock'}
+                    </button>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -928,31 +1172,198 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Tables Tab */}
-        {activeTab === 'tables' && (
+        {/* Promotions Tab */}
+        {activeTab === 'promotions' && (
           <div>
-            <h2 className="section-title">Table Management</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {tables.map((table) => (
-                <div
-                  key={table.id}
-                  className={`stat-card ${table.status === 'available'
-                    ? 'bg-green-900/20 border-green-700'
-                    : table.status === 'occupied'
-                      ? 'bg-red-900/20 border-red-700'
-                      : 'bg-yellow-900/20 border-yellow-700'
-                    }`}
-                >
-                  <p className="text-3xl font-bold mb-1">{table.tableNumber}</p>
-                  <p className="text-sm text-gray-400 mb-2">Capacity: {table.capacity}</p>
-                  <p className={`text-xs font-semibold uppercase ${table.status === 'available' ? 'text-green-400' :
-                    table.status === 'occupied' ? 'text-red-400' :
-                      'text-yellow-400'
-                    }`}>
-                    {table.status}
-                  </p>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="section-title mb-0">Promotions Management</h2>
+              <button
+                onClick={() => handleOpenPromotionModal()}
+                className="btn-primary flex items-center gap-2"
+              >
+                <MdAdd className="text-xl" /> Create Promotion
+              </button>
+            </div>
+
+            {isPromotionsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+              </div>
+            ) : promotions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-brand-darker border border-brand-border rounded-lg">
+                <MdLocalOffer className="text-6xl text-gray-600 mb-4" />
+                <p className="text-gray-400 text-lg">No active promotions</p>
+                <button onClick={() => handleOpenPromotionModal()} className="mt-4 text-brand-primary hover:underline">
+                  Create your first promotion
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {promotions.map((promo) => {
+                  const isActive = new Date() >= new Date(promo.startAt) && new Date() <= new Date(promo.endAt);
+                  return (
+                    <div key={promo.id} className={`card relative border-l-4 ${isActive ? 'border-l-green-500' : 'border-l-gray-600'}`}>
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        <button
+                          onClick={() => handleOpenPromotionModal(promo)}
+                          className="p-1.5 bg-brand-dark hover:bg-black rounded-lg text-gray-400 hover:text-white transition-colors border border-brand-border"
+                        >
+                          <MdEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePromotion(promo.id)}
+                          className="p-1.5 bg-brand-dark hover:bg-black rounded-lg text-red-400 hover:text-red-300 transition-colors border border-brand-border"
+                        >
+                          <MdDelete />
+                        </button>
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-1 pr-16">{promo.name}</h3>
+                      <div className="flex items-baseline gap-1 mb-4">
+                        <span className="text-2xl font-bold text-brand-primary">
+                          {promo.discountType === 'PERCENTAGE' ? `${promo.discountValue}%` : `$${promo.discountValue}`}
+                        </span>
+                        <span className="text-sm text-gray-400">OFF</span>
+                      </div>
+
+                      <div className="space-y-2 text-sm text-gray-400">
+                        <div className="flex justify-between">
+                          <span>Start:</span>
+                          <span className="text-white">{new Date(promo.startAt).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>End:</span>
+                          <span className="text-white">{new Date(promo.endAt).toLocaleString()}</span>
+                        </div>
+                        <div className="pt-2 border-t border-brand-border mt-2 flex justify-between items-center">
+                          <span className="font-medium">Status:</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${isActive
+                            ? 'bg-green-900/30 text-green-400 border border-green-800'
+                            : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                            {isActive ? 'ACTIVE' : 'INACTIVE'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Promotion Modal */}
+        {showPromotionModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-brand-darker border border-brand-border rounded-lg max-w-lg w-full p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white">
+                  {editingPromotionId ? 'Edit Promotion' : 'Create New Promotion'}
+                </h3>
+                <button onClick={handleClosePromotionModal} className="p-2 text-gray-400 hover:text-white rounded-lg transition-colors">
+                  <MdClose className="text-xl" />
+                </button>
+              </div>
+
+              {promotionActionSuccess && (
+                <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm flex items-center gap-2">
+                  <MdCheckCircle /> {promotionActionSuccess}
                 </div>
-              ))}
+              )}
+              {promotionActionError && (
+                <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm flex items-center gap-2">
+                  <MdError /> {promotionActionError}
+                </div>
+              )}
+
+              <form onSubmit={handleSavePromotion} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Promotion Name</label>
+                  <input
+                    type="text"
+                    value={promotionForm.name}
+                    onChange={(e) => setPromotionForm({ ...promotionForm, name: e.target.value })}
+                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    placeholder="e.g. Summer Sale"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Discount Type</label>
+                    <select
+                      value={promotionForm.discountType}
+                      onChange={(e) => setPromotionForm({ ...promotionForm, discountType: e.target.value as 'PERCENTAGE' | 'FIXED' })}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary"
+                    >
+                      <option value="PERCENTAGE">Percentage (%)</option>
+                      <option value="FIXED">Fixed Amount ($)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Value</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={promotionForm.discountValue}
+                      onChange={(e) => setPromotionForm({ ...promotionForm, discountValue: e.target.value })}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                      placeholder="20.00"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Start Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={promotionForm.startAt}
+                      onChange={(e) => setPromotionForm({ ...promotionForm, startAt: e.target.value })}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary [color-scheme:dark]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">End Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={promotionForm.endAt}
+                      onChange={(e) => setPromotionForm({ ...promotionForm, endAt: e.target.value })}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary [color-scheme:dark]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-4">
+                  <button
+                    type="button"
+                    onClick={handleClosePromotionModal}
+                    disabled={promotionActionLoading}
+                    className="flex-1 py-3 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={promotionActionLoading}
+                    className="flex-1 py-3 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {promotionActionLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <MdSave /> Save Promotion
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

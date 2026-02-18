@@ -22,6 +22,7 @@ export const API_CONFIG = {
   PROFILE_ENDPOINT: '/api/profile',
   PAYMENT_ENDPOINT: '/api/payments',
   PAYMENT_CREATE_ENDPOINT: '/payments',
+  PROMOTION_ENDPOINT: '/api/promotion',
 };
 
 /**
