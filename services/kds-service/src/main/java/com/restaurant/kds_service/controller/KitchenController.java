@@ -51,8 +51,8 @@ public class KitchenController {
     @PostMapping("/orders/{orderId}/ready")
     public ResponseEntity<KitchenOrderResponse> markOrderReady(
             @PathVariable Long orderId,
-            @RequestHeader(value = "X-User-ID", required = false) String userId,
-            @RequestHeader(value = "X-Table-ID", required = false) String tableId) {
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-Table-Id", required = false) String tableId) {
         logger.info("POST /api/kitchen/orders/{}/ready - Marking order as READY (userId: {}, tableId: {})",
                 orderId, userId, tableId);
         KitchenOrderResponse updatedOrder = kitchenService.markOrderAsReady(orderId, userId, tableId);
@@ -66,8 +66,8 @@ public class KitchenController {
     @PostMapping("/orders/{orderId}/preparing")
     public ResponseEntity<KitchenOrderResponse> markOrderPreparing(
             @PathVariable Long orderId,
-            @RequestHeader(value = "X-User-ID", required = false) String userId,
-            @RequestHeader(value = "X-Table-ID", required = false) String tableId) {
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-Table-Id", required = false) String tableId) {
         logger.info("POST /api/kitchen/orders/{}/preparing - Marking order as PREPARING (userId: {}, tableId: {})",
                 orderId, userId, tableId);
         KitchenOrderResponse updatedOrder = kitchenService.updateOrderStatus(orderId, "PREPARING", userId, tableId);
@@ -81,8 +81,8 @@ public class KitchenController {
     @PostMapping("/orders/{orderId}/created")
     public ResponseEntity<KitchenOrderResponse> markOrderCreated(
             @PathVariable Long orderId,
-            @RequestHeader(value = "X-User-ID", required = false) String userId,
-            @RequestHeader(value = "X-Table-ID", required = false) String tableId) {
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-Table-Id", required = false) String tableId) {
         logger.info("POST /api/kitchen/orders/{}/created - Marking order as CREATED (userId: {}, tableId: {})",
                 orderId, userId, tableId);
         KitchenOrderResponse updatedOrder = kitchenService.updateOrderStatus(orderId, "CREATED", userId, tableId);

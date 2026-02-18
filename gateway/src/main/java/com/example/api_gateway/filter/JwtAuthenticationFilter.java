@@ -16,8 +16,12 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.net.URI;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 
 /**
  * Validate JWT token, extract claims, and validate tableId
@@ -39,13 +43,37 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             JwtValidator jwtValidator,
             @Value("${gateway.public-paths:/api/auth/**}") String publicPathsStr) {
         this.jwtValidator = jwtValidator;
+
+        // Debug: Log the raw environment variable value
+        log.debug("Raw PUBLIC_PATHS from environment: '{}'", publicPathsStr);
+
         this.publicPaths = Arrays.asList(publicPathsStr.split(","));
+
+        log.info("JwtAuthenticationFilter initialized with {} public paths", publicPaths.size());
+        publicPaths.forEach(path -> log.debug("  Public path: '{}'", path));
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
+
+        // Allow OPTIONS requests for CORS preflight
+        if (request.getMethod().name().equalsIgnoreCase("OPTIONS")) {
+            return chain.filter(exchange);
+        }
+
+        // Get the original path BEFORE any RewritePath filters modify it
         String path = request.getPath().value();
+
+        // Try to get the original request URL from Gateway attributes (set before
+        // RewritePath)
+        LinkedHashSet<URI> originalUris = exchange
+                .getAttribute(ServerWebExchangeUtils.GATEWAY_ORIGINAL_REQUEST_URL_ATTR);
+        if (originalUris != null && !originalUris.isEmpty()) {
+            URI originalUri = originalUris.iterator().next();
+            path = originalUri.getPath();
+            log.debug("Using original path '{}' instead of rewritten path '{}'", path, request.getPath().value());
+        }
 
         // Skip JWT validation for public paths
         if (isPublicPath(path)) {
@@ -71,7 +99,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
             log.debug("JWT validated - userId: {}, role: {}", userId, roleName);
 
-            // Extract tableId - Priority 1: JWT claims, Priority 2: Request (header/query param)
+            // Extract tableId - Priority 1: JWT claims, Priority 2: Request (header/query
+            // param)
             Long tableId = jwtValidator.extractTableId(claims);
             if (tableId == null) {
                 log.debug("TableId not found in JWT, checking request headers/params");
@@ -80,12 +109,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 log.debug("TableId extracted from JWT: {}", tableId);
             }
 
-            if (tableId == null) {
-                log.warn("Missing tableId for protected path: {}", path);
-                throw new MissingClaimException("TableId must be present in JWT claims or X-Table-Id header/query parameter");
+            if (role == 1 && (tableId == null || tableId <= 0)) {
+                log.warn("Invalid or missing mandatory tableId ({}) for CUSTOMER on protected path: {}", tableId, path);
+                throw new MissingClaimException(
+                        "A valid TableId must be present for Customers in JWT claims or X-Table-Id header/query parameter");
             }
 
-            log.debug("Final tableId value: {}", tableId);
+            if (tableId != null) {
+                log.debug("Final tableId value: {}", tableId);
+            }
 
             // Store in exchange attributes for downstream filters
             exchange.getAttributes().put(USER_ID_ATTRIBUTE, userId);
@@ -107,8 +139,20 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
      * Check if the path is public (doesn't require JWT)
      */
     private boolean isPublicPath(String path) {
-        return publicPaths.stream()
-                .anyMatch(pattern -> pathMatcher.match(pattern, path));
+        boolean isPublic = publicPaths.stream()
+                .anyMatch(pattern -> {
+                    boolean matches = pathMatcher.match(pattern.trim(), path);
+                    if (matches) {
+                        log.debug("Path '{}' matched public pattern '{}'", path, pattern);
+                    }
+                    return matches;
+                });
+
+        if (!isPublic) {
+            log.debug("Path '{}' did not match any public patterns", path);
+        }
+
+        return isPublic;
     }
 
     /**
@@ -144,4 +188,3 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         return 3; // Execute after LoggingFilter
     }
 }
-

@@ -1,110 +1,177 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: api-gateway
   cloud:
     gateway:
+      default-filters:
+          - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
       routes:
-        # Auth Service (Public - No JWT Required)
+
+        # Auth Service (Public & Profile)
         - id: auth-service
-          uri: http://localhost:8081
+          uri: ${AUTH_SERVICE_URL:https://ishanka1102-auth-service.hf.space}
           predicates:
-            - Path=/api/auth/**
-          filters:
-            - RewritePath=/api/auth/(?<segment>.*), /${segment}
+            - Path=/api/auth/**, /api/profile/**
+          # filters:
+          #   - RewritePath=/api/(auth|profile)/(?<segment>.*), /${segment}
+
+        # Auth Service - Admin Staff Management
+        - id: auth-service-admin
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/admin/staff/**, /api/admin/users/**
+          # filters:
+          #   - RewritePath=/api/admin/(?<segment>.*), /api/admin/${segment}
 
         # Menu Service
         - id: menu-service
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/menu/**
-          filters:
-            - RewritePath=/api/menu/(?<segment>.*), /api/menu/${segment}
+          # filters:
+          #   - RewritePath=/api/menu/(?<segment>.*), /api/menu/${segment}
 
         # Menu Service - Admin Menu
         - id: admin-menu-service
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/admin/menu/**
-          filters:
-            - RewritePath=/api/admin/menu/(?<segment>.*), /api/admin/menu/${segment}
+          # filters:
+          #   - RewritePath=/api/admin/menu/(?<segment>.*), /api/admin/menu/${segment}
 
         # Category Service - Public (No Auth)
         - id: category-service-public
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/categories/**
-          filters:
-            - RewritePath=/api/categories/(?<segment>.*), /api/categories/${segment}
+          # filters:
+          #   - RewritePath=/api/categories/(?<segment>.*), /api/categories/${segment}
 
         # Category Service - Admin
         - id: category-service-admin
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/admin/categories/**
-          filters:
-            - RewritePath=/api/admin/categories/(?<segment>.*), /api/admin/categories/${segment}
+          # filters:
+          #   - RewritePath=/api/admin/categories/(?<segment>.*), /api/admin/categories/${segment}
 
         # Media Service (Menu Service)
         - id: media-service
-          uri: http://localhost:8082
+          uri: ${MENU_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/media/**
-          filters:
-            - RewritePath=/api/media/(?<segment>.*), /api/media/${segment}
+          # filters:
+          #   - RewritePath=/api/media/(?<segment>.*), /api/media/${segment}
 
         # Order Service
         - id: order-service
-          uri: http://localhost:8083
+          uri: ${ORDER_SERVICE_URL:http://order-service}
           predicates:
             - Path=/api/orders/**
 
         # Analytics Service
         - id: analytics-service
-          uri: http://localhost:8084
+          uri: ${ANALYTICS_SERVICE_URL:http://analytics-service}
           predicates:
-            - Path=/api/analytics/**
+            - Path=/api/admin/analytics/**
+          # filters:
+          #   - StripPrefix=0 # Not strictly necessary as default is 0, ensures full path is sent
 
         # KDS Service
         - id: kds-service
-          uri: http://localhost:8085
+          uri: ${KDS_SERVICE_URL:https://kds-service.livelymeadow-4f6bca4e.centralindia.azurecontainerapps.io}
           predicates:
-            - Path=/api/kds/**
+            - Path=/api/kitchen/**
+          filters:
+            - StripPrefix=0
 
-      # Global CORS Configuration
+        # Waiter Service
+        - id: waiter-service
+          uri: ${WAITER_SERVICE_URL:https://waiter-service.livelymeadow-4f6bca4e.centralindia.azurecontainerapps.io}
+          predicates:
+            - Path=/api/waiter/**
+          filters:
+            - StripPrefix=0
+
+        # Payment Service
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:https://payment-service.livelymeadow-4f6bca4e.centralindia.azurecontainerapps.io}
+          predicates:
+            - Path=/payments/**
+          filters:
+            - StripPrefix=0
+
+        - id: cart-service
+          uri: ${CART_SERVICE_URL:http://cart-service}
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - StripPrefix=0
+
+        # Promotion Service
+        - id: promotion-service
+          uri: ${PROMOTION_SERVICE_URL:http://promotion-service}
+          predicates:
+            - Path=/api/promotion/**
+
+        # Promotion Service - Admin
+        - id: promotion-service-admin
+          uri: ${PROMOTION_SERVICE_URL:http://promotion-service}
+          predicates:
+            - Path=/api/admin/promotion/**
+
+
+      
+      
+
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins:
-              - "http://localhost:3000"
-              - "http://localhost:3001"
+            # allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5005,http://localhost:3001,https://no-18-restaurant-ms.vercel.app}
+            allowedOriginPatterns:
+              - "*"
             allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - PATCH
-              - OPTIONS
+              - "*"
             allowedHeaders:
               - "*"
             exposedHeaders:
-              - X-Correlation-Id
-              - X-Service-Name
-            allowCredentials: true
+              - "*"
+              - Authorization
+            allowCredentials: false
             maxAge: 3600
+
 
 # JWT Configuration
 jwt:
-  secret: 7d31f0ead336068cac57f475bdb722e69bb452d2
+  secret: ${JWT_SECRET:ue8yLJTAALbJn67rrh4lEGPLgl634dLEEIvRjVbemRFmgei9LggUKZjs/aSh9rvWGRBrze0Af5At6ywPsdO9+g==}
 
 # Public paths that don't require JWT (comma-separated)
 gateway:
-  public-paths: /api/auth/**,/api/categories/**,/api/menu/**,/api/media/**,/api/orders/active
+  public-paths: ${PUBLIC_PATHS:/api/auth/login,/api/auth/register,/api/auth/refresh,/api/categories/**,/api/menu/**,/api/media/**,/api/orders/active,/actuator/**,/api/admin/analytics/openapi.json,/api/waiter/health,/api/kitchen/health,/api/kitchen/debug/status,/api/waiter/debug/kafka,/payments/**,/api/promotion/**,/api/admin/promotion/**}
 
 # Logging
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    com.example.api_gateway: DEBUG
+    root: ${LOG_LEVEL:INFO}
+    org.springframework.cloud.gateway: ${LOG_LEVEL:DEBUG}
+    com.example.api_gateway: ${LOG_LEVEL:DEBUG}
+
+# Spring Boot Actuator for Health Checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
