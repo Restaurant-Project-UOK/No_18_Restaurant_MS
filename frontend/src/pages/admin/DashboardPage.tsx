@@ -5,8 +5,8 @@ import { useOrders } from '../../context/OrderContext';
 import { useMenu } from '../../context/MenuContext';
 import { useTables } from '../../context/TableContext';
 import { OrderStatus, UserRole, Staff, MenuItem } from '../../types';
-import { MdDashboard, MdReceiptLong, MdPeople, MdRestaurant, MdChair, MdEdit, MdPerson, MdClose, MdSave, MdShowChart, MdTrendingUp, MdAccessTime, MdHealthAndSafety, MdCheckCircle, MdWarning, MdError, MdAdd, MdDelete, MdImage } from 'react-icons/md';
-import { analyticsService, AnalyticsSummary, TopItem, DailyForecast, HourlyForecast, HealthLog } from '../../services/analyticsService';
+import { MdDashboard, MdReceiptLong, MdPeople, MdRestaurant, MdChair, MdEdit, MdPerson, MdClose, MdSave, MdShowChart, MdTrendingUp, MdAccessTime, MdCheckCircle, MdError, MdAdd, MdDelete, MdImage } from 'react-icons/md';
+import { analyticsService, DailySummaryResponse, TopItem, ForecastItem, HourlyBreakdown } from '../../services/analyticsService';
 import { staffService } from '../../services/staffService';
 
 export default function AdminDashboardPage() {
@@ -23,11 +23,10 @@ export default function AdminDashboardPage() {
     start: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   });
-  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
+  const [analyticsSummary, setAnalyticsSummary] = useState<DailySummaryResponse | null>(null);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
-  const [dailyForecast, setDailyForecast] = useState<DailyForecast[]>([]);
-  const [hourlyForecast, setHourlyForecast] = useState<HourlyForecast[]>([]);
-  const [healthLogs, setHealthLogs] = useState<HealthLog[]>([]);
+  const [dailyForecast, setDailyForecast] = useState<ForecastItem[]>([]);
+  const [hourlyData, setHourlyData] = useState<HourlyBreakdown[]>([]);
 
   // Staff form state
   const [staffForm, setStaffForm] = useState({
@@ -336,19 +335,17 @@ export default function AdminDashboardPage() {
   const loadAnalyticsData = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
-      const [summary, items, daily, hourly, health] = await Promise.all([
+      const [summary, itemsData, forecastData, hourlyRes] = await Promise.all([
         analyticsService.getSummary(analyticsDates.start, analyticsDates.end),
         analyticsService.getTopItems(),
         analyticsService.getDailyForecast(),
-        analyticsService.getHourlyForecast(),
-        analyticsService.getHealthLogs(),
+        analyticsService.getHourlyOrders(),
       ]);
 
       setAnalyticsSummary(summary);
-      setTopItems(items);
-      setDailyForecast(daily);
-      setHourlyForecast(hourly);
-      setHealthLogs(health);
+      setTopItems(itemsData.top_items);
+      setDailyForecast(forecastData.forecasts);
+      setHourlyData(hourlyRes.hourly_data);
     } catch (error) {
       console.error('Failed to load analytics:', error);
     } finally {
@@ -529,26 +526,38 @@ export default function AdminDashboardPage() {
             ) : (
               <>
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                   <div className="card">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-gray-400 text-sm font-medium">Total Revenue</p>
+                      <p className="text-gray-400 text-sm font-medium">Daily Revenue</p>
                       <MdTrendingUp className="text-green-400 text-2xl" />
                     </div>
                     <p className="text-4xl font-bold text-brand-primary mb-1">
-                      ${analyticsSummary?.totalRevenue.toFixed(2) || '0.00'}
+                      ${analyticsSummary?.daily_summaries[0]?.total_revenue || '0.00'}
                     </p>
-                    <p className="text-xs text-gray-500">All-time revenue</p>
+                    <p className="text-xs text-gray-500">
+                      For {analyticsSummary?.daily_summaries[0]?.date || 'selected date'}
+                    </p>
                   </div>
                   <div className="card">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-gray-400 text-sm font-medium">Total Orders</p>
+                      <p className="text-gray-400 text-sm font-medium">Order Count</p>
                       <MdReceiptLong className="text-blue-400 text-2xl" />
                     </div>
                     <p className="text-4xl font-bold text-white mb-1">
-                      {analyticsSummary?.totalOrders || 0}
+                      {analyticsSummary?.daily_summaries[0]?.order_count || 0}
                     </p>
-                    <p className="text-xs text-gray-500">Orders completed</p>
+                    <p className="text-xs text-gray-500">Orders placed</p>
+                  </div>
+                  <div className="card">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-gray-400 text-sm font-medium">Avg Order Value</p>
+                      <MdRestaurant className="text-purple-400 text-2xl" />
+                    </div>
+                    <p className="text-4xl font-bold text-white mb-1">
+                      ${analyticsSummary?.daily_summaries[0]?.average_order_value || '0.00'}
+                    </p>
+                    <p className="text-xs text-gray-500">Per order average</p>
                   </div>
                 </div>
 
@@ -558,122 +567,105 @@ export default function AdminDashboardPage() {
                     <MdRestaurant /> Top Selling Items
                   </h3>
                   <div className="space-y-3">
-                    {topItems.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between pb-3 border-b border-brand-border last:border-0">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-brand-primary/20 rounded-full flex items-center justify-center">
-                            <span className="text-brand-primary font-bold text-sm">#{index + 1}</span>
+                    {topItems.length > 0 ? (
+                      topItems.map((item, index) => (
+                        <div key={item.item_id} className="flex items-center justify-between pb-3 border-b border-brand-border last:border-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-brand-primary/20 rounded-full flex items-center justify-center">
+                              <span className="text-brand-primary font-bold text-sm">#{index + 1}</span>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-white">{item.item_name}</p>
+                              <p className="text-sm text-gray-500">{item.total_quantity} units sold</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-white">{item.name}</p>
-                            <p className="text-sm text-gray-500">{item.count} orders</p>
+                          <div className="text-right">
+                            <p className="font-bold text-brand-primary">${Number(item.total_revenue).toFixed(2)}</p>
+                            <p className="text-xs text-gray-500">total revenue</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-brand-primary">${item.revenue?.toFixed(2)}</p>
-                          <p className="text-xs text-gray-500">revenue</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-center py-4">No top items data available</p>
+                    )}
                   </div>
                 </div>
 
-                {/* Forecasts */}
+                {/* Forecasts & Hourly Data */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   {/* Daily Forecast */}
                   <div className="card">
                     <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-                      <MdTrendingUp /> Daily Revenue Forecast (7 Days)
+                      <MdTrendingUp /> Daily Revenue Forecast
                     </h3>
                     <div className="space-y-3">
-                      {dailyForecast.map((forecast, index) => {
-                        const date = new Date(forecast.date);
-                        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-                        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                      {dailyForecast.length > 0 ? (
+                        dailyForecast.map((forecast, index) => {
+                          const date = new Date(forecast.forecast_date);
+                          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                          const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                        return (
-                          <div key={index} className="flex items-center justify-between pb-3 border-b border-brand-border last:border-0">
-                            <div>
-                              <p className="font-semibold text-white">{dayName}, {dateStr}</p>
-                              {isWeekend && <p className="text-xs text-yellow-400">Weekend</p>}
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold text-green-400">
-                                ${forecast.predictedRevenue.toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Hourly Forecast */}
-                  <div className="card">
-                    <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-                      <MdAccessTime /> Hourly Order Forecast (Today)
-                    </h3>
-                    <div className="space-y-2">
-                      {hourlyForecast.map((forecast, index) => {
-                        const hour12 = forecast.hour > 12 ? forecast.hour - 12 : forecast.hour;
-                        const ampm = forecast.hour >= 12 ? 'PM' : 'AM';
-                        const timeStr = `${hour12}:00 ${ampm}`;
-
-                        // Determine if it's peak hours
-                        const isPeak = (forecast.hour >= 12 && forecast.hour <= 14) ||
-                          (forecast.hour >= 18 && forecast.hour <= 20);
-
-                        return (
-                          <div key={index} className="flex items-center gap-3">
-                            <div className="w-20 text-sm text-gray-400">{timeStr}</div>
-                            <div className="flex-1 bg-brand-dark rounded-full h-6 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full flex items-center justify-end pr-2 ${isPeak ? 'bg-brand-primary' : 'bg-blue-600'
-                                  }`}
-                                style={{ width: `${(forecast.predictedOrders / 25) * 100}%` }}
-                              >
-                                <span className="text-xs font-semibold text-white">
-                                  {forecast.predictedOrders}
-                                </span>
+                          return (
+                            <div key={index} className="flex items-center justify-between pb-3 border-b border-brand-border last:border-0">
+                              <div>
+                                <p className="font-semibold text-white">{dayName}, {dateStr}</p>
+                                <p className="text-xs text-gray-500">{forecast.forecast_type.replace('_', ' ')}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-green-400">
+                                  ${Number(forecast.forecast_value).toFixed(2)}
+                                </p>
                               </div>
                             </div>
-                            {isPeak && <span className="text-xs text-brand-primary font-semibold">Peak</span>}
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      ) : (
+                        <p className="text-gray-500 text-center py-4">No forecast data available</p>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* System Health */}
-                <div className="card">
-                  <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-                    <MdHealthAndSafety /> System Health & Task Logs
-                  </h3>
-                  <div className="space-y-3">
-                    {healthLogs.map((log, index) => {
-                      const logTime = new Date(log.timestamp);
-                      const timeAgo = Math.floor((Date.now() - logTime.getTime()) / 60000);
-                      const timeStr = timeAgo < 1 ? 'Just now' : `${timeAgo} min ago`;
+                  {/* Hourly Actual Data */}
+                  <div className="card">
+                    <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
+                      <MdAccessTime /> Hourly Traffic (Actual)
+                    </h3>
+                    <div className="space-y-4">
+                      {hourlyData.length > 0 ? (
+                        hourlyData.map((data, index) => {
+                          const hour12 = data.hour > 12 ? data.hour - 12 : data.hour === 0 ? 12 : data.hour;
+                          const ampm = data.hour >= 12 ? 'PM' : 'AM';
+                          const timeStr = `${hour12}:00 ${ampm}`;
 
-                      return (
-                        <div key={index} className="flex items-start gap-3 pb-3 border-b border-brand-border last:border-0">
-                          <div className="mt-1">
-                            {log.status === 'success' && <MdCheckCircle className="text-green-400 text-xl" />}
-                            {log.status === 'warning' && <MdWarning className="text-yellow-400 text-xl" />}
-                            {log.status === 'error' && <MdError className="text-red-400 text-xl" />}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="font-semibold text-white">{log.task}</p>
-                              <p className="text-xs text-gray-500">{timeStr}</p>
+                          // Peak hour estimation for visual aid
+                          const isPeak = data.order_count > 10;
+
+                          return (
+                            <div key={index} className="flex items-center gap-3">
+                              <div className="w-20 text-sm text-gray-400">{timeStr}</div>
+                              <div className="flex-1 bg-brand-dark rounded-full h-6 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500 ${isPeak ? 'bg-orange-500' : 'bg-blue-600'
+                                    }`}
+                                  style={{ width: `${Math.min((data.order_count / 30) * 100, 100)}%` }}
+                                >
+                                  {data.order_count > 0 && (
+                                    <span className="text-[10px] font-bold text-white">
+                                      {data.order_count}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {data.revenue && (
+                                <span className="text-xs text-brand-primary w-16 text-right">${Number(data.revenue).toFixed(0)}</span>
+                              )}
                             </div>
-                            <p className="text-sm text-gray-400">{log.message}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })
+                      ) : (
+                        <p className="text-gray-500 text-center py-4">No hourly data available</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </>

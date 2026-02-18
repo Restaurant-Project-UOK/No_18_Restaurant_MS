@@ -5,38 +5,50 @@ import { getAccessToken } from '../utils/cookieStorage';
 // TYPES & INTERFACES
 // ============================================
 
-export interface AnalyticsSummary {
-  totalRevenue: number;
-  totalOrders: number;
+export interface DailySummary {
+  date: string;
+  total_revenue: string;
+  order_count: number;
+  average_order_value: string;
+}
+
+export interface DailySummaryResponse {
+  daily_summaries: DailySummary[];
+  total_records: number;
 }
 
 export interface TopItem {
-  name: string;
-  count: number;
-  revenue?: number;
+  item_id: number;
+  item_name: string;
+  total_quantity: number;
+  total_revenue: string;
 }
 
-export interface DailyForecast {
-  date: string;
-  predictedRevenue: number;
+export interface TopItemsResponse {
+  top_items: TopItem[];
+  total_items: number;
 }
 
-export interface HourlyForecast {
-  hour: number;
-  predictedOrders: number;
+export interface ForecastItem {
+  forecast_date: string;
+  forecast_value: string;
+  forecast_type: string;
+}
+
+export interface ForecastResponse {
+  forecasts: ForecastItem[];
+  total_forecasts: number;
 }
 
 export interface HourlyBreakdown {
   hour: number;
-  orderCount: number;
-  revenue?: number;
+  order_count: number;
+  revenue?: string;
 }
 
-export interface HealthLog {
-  timestamp: string;
-  task: string;
-  status: 'success' | 'warning' | 'error';
-  message: string;
+export interface HourlyResponse {
+  hourly_data: HourlyBreakdown[];
+  total_records: number;
 }
 
 // ============================================
@@ -49,7 +61,7 @@ export const analyticsService = {
    * @param startDate - Optional start date (ISO string or YYYY-MM-DD)
    * @param endDate - Optional end date (ISO string or YYYY-MM-DD)
    */
-  getSummary: async (startDate?: string, endDate?: string): Promise<AnalyticsSummary> => {
+  getSummary: async (startDate?: string, endDate?: string): Promise<DailySummaryResponse> => {
     try {
       const token = getAccessToken();
       let url = `${API_CONFIG.ANALYTICS_ENDPOINT}/summary`;
@@ -61,7 +73,7 @@ export const analyticsService = {
       const query = params.toString();
       if (query) url += `?${query}`;
 
-      return await apiRequest<AnalyticsSummary>(
+      return await apiRequest<DailySummaryResponse>(
         url,
         { jwt: token || undefined }
       );
@@ -74,10 +86,10 @@ export const analyticsService = {
   /**
    * GET /api/admin/analytics/top-items
    */
-  getTopItems: async (): Promise<TopItem[]> => {
+  getTopItems: async (): Promise<TopItemsResponse> => {
     try {
       const token = getAccessToken();
-      return await apiRequest<TopItem[]>(
+      return await apiRequest<TopItemsResponse>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/top-items`,
         { jwt: token || undefined }
       );
@@ -90,10 +102,10 @@ export const analyticsService = {
   /**
    * GET /api/admin/analytics/forecast/daily
    */
-  getDailyForecast: async (): Promise<DailyForecast[]> => {
+  getDailyForecast: async (): Promise<ForecastResponse> => {
     try {
       const token = getAccessToken();
-      return await apiRequest<DailyForecast[]>(
+      return await apiRequest<ForecastResponse>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/forecast/daily`,
         { jwt: token || undefined }
       );
@@ -104,29 +116,13 @@ export const analyticsService = {
   },
 
   /**
-   * GET /api/admin/analytics/forecast/hourly
-   */
-  getHourlyForecast: async (): Promise<HourlyForecast[]> => {
-    try {
-      const token = getAccessToken();
-      return await apiRequest<HourlyForecast[]>(
-        `${API_CONFIG.ANALYTICS_ENDPOINT}/forecast/hourly`,
-        { jwt: token || undefined }
-      );
-    } catch (error) {
-      console.error('[analyticsService] Failed to fetch hourly forecast:', error);
-      throw error;
-    }
-  },
-
-  /**
    * GET /api/admin/analytics/hourly
-   * Hourly order breakdown (actual data, not forecast)
+   * Hourly order breakdown (actual data)
    */
-  getHourlyOrders: async (): Promise<HourlyBreakdown[]> => {
+  getHourlyOrders: async (): Promise<HourlyResponse> => {
     try {
       const token = getAccessToken();
-      return await apiRequest<HourlyBreakdown[]>(
+      return await apiRequest<HourlyResponse>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/hourly`,
         { jwt: token || undefined }
       );
@@ -135,20 +131,5 @@ export const analyticsService = {
       throw error;
     }
   },
-
-  /**
-   * GET /api/admin/analytics/health
-   */
-  getHealthLogs: async (): Promise<HealthLog[]> => {
-    try {
-      const token = getAccessToken();
-      return await apiRequest<HealthLog[]>(
-        `${API_CONFIG.ANALYTICS_ENDPOINT}/health`,
-        { jwt: token || undefined }
-      );
-    } catch (error) {
-      console.error('[analyticsService] Failed to fetch health logs:', error);
-      throw error;
-    }
-  },
 };
+
