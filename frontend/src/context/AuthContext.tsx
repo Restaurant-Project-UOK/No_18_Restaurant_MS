@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
-import { AuthState, UserRole } from '../types';
+import { AuthState, UserRole, User } from '../types';
 import { authService, LoginRequest, RegisterRequest } from '../services/authService';
 import { profileService, UpdateProfileRequest } from '../services/profileService';
+import { decodeToken } from '../utils/jwtUtils';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, tableId?: number) => Promise<void>;
@@ -47,6 +48,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           localStorage.removeItem('auth_access_token');
           localStorage.removeItem('auth_refresh_token');
           localStorage.removeItem('auth_user');
+          localStorage.removeItem('auth_user_id');
         }
       }
     };
@@ -61,14 +63,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const loginData: LoginRequest = { email, password, tableId };
       const response = await authService.login(loginData);
 
+      // Reconstruct user object solely from the JWT access token
+      console.log('[AuthContext] Decoding user from JWT...');
+      const decoded = decodeToken(response.accessToken);
+
+      if (!decoded) {
+        throw new Error('Invalid token: Could not decode user information');
+      }
+
+      const user: User = {
+        id: decoded.sub,
+        email: email,
+        name: email.split('@')[0], // Fallback name from email
+        role: decoded.role,
+        createdAt: new Date().toISOString(), // Fallback
+      };
+
+      console.log('[AuthContext] User identified from token:', user);
+
       // Store tokens and user
       localStorage.setItem('auth_access_token', response.accessToken);
       localStorage.setItem('auth_refresh_token', response.refreshToken);
-      localStorage.setItem('auth_user', JSON.stringify(response.user));
-      localStorage.setItem('auth_user_id', response.user.id.toString());
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      localStorage.setItem('auth_user_id', user.id.toString());
 
       setAuthState({
-        user: response.user,
+        user: user,
         token: response.accessToken,
         isAuthenticated: true,
         loading: false,
@@ -128,12 +148,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           phone,
         };
 
-        // Backend returns a success message string
         const message = await authService.register(registerData);
         console.log('[AuthContext] Registration successful:', message);
 
-        // After registration, automatically log in
-        console.log('[AuthContext] Attempting auto-login after registration');
         await login(email, password);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Registration failed';
@@ -162,7 +179,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
         const updatedProfile = await profileService.updateMyProfile(updateData, authState.token);
 
-        // Update auth state with new profile data
         const updatedUser = {
           ...authState.user,
           name: updatedProfile.fullName,
@@ -200,7 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           email,
           password,
           role,
-          provider: 1, // local provider
+          provider: 1,
           phone,
         };
         await authService.register(registerData);
@@ -220,7 +236,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 
   const getJwtToken = useCallback((): string | null => {
-    // Return the actual JWT access token from localStorage
     const token = localStorage.getItem('auth_access_token');
     return token || authState.token;
   }, [authState.token]);
@@ -236,7 +251,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('auth_access_token', response.accessToken);
       setAuthState((prev) => ({ ...prev, token: response.accessToken }));
     } catch (error) {
-      // Refresh failed, logout user
       await logout();
       throw error;
     }
@@ -257,4 +271,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

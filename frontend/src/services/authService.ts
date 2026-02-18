@@ -1,4 +1,3 @@
-import { User } from '../types';
 import { apiRequest } from '../config/api';
 
 // ============================================
@@ -28,7 +27,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  user: User;
+  // User entity removed - we decode user info from JWT manually
 }
 
 export interface RefreshTokenRequest {
@@ -168,11 +167,11 @@ export const logout = async (accessToken?: string, userId?: number): Promise<str
   try {
     const token = accessToken || localStorage.getItem('auth_access_token');
     const storedUserId = userId || parseInt(localStorage.getItem('auth_user_id') || '0', 10);
-    
+
     if (!token) {
       throw new Error('No access token provided');
     }
-    
+
     if (!storedUserId) {
       throw new Error('No user ID provided');
     }
