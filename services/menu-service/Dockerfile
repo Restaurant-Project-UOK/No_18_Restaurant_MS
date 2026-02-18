@@ -1,15 +1,44 @@
-# Multi-stage Dockerfile for menu-service (Spring Boot, Java 17)
-# Builder: use Maven to produce the executable jar
-FROM maven:3.9.4-eclipse-temurin-17 AS builder
-WORKDIR /workspace
-COPY . ./
-RUN chmod +x mvnw || true
-RUN ./mvnw -B -DskipTests package
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
-# Runtime image
-FROM eclipse-temurin:17-jdk-jammy
 WORKDIR /app
-ARG JAR_FILE=target/*.jar
-COPY --from=builder /workspace/target/*.jar /app/app.jar
-EXPOSE 8080
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+
+# Copy pom.xml and download dependencies (cache layer)
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy source code and build
+COPY src ./src
+RUN mvn clean package -DskipTests -B
+
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre-alpine
+
+# Create non-root user for security
+RUN addgroup -S spring && adduser -S spring -G spring
+
+WORKDIR /app
+
+# Copy the built JAR from builder stage
+COPY --from=builder /app/target/*.jar app.jar
+
+# Change ownership to non-root user
+RUN chown spring:spring app.jar
+
+# Switch to non-root user
+USER spring:spring
+
+# Expose port
+EXPOSE 8082
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8082/actuator/health || exit 1
+
+# Run the application
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", \
+  "app.jar"]

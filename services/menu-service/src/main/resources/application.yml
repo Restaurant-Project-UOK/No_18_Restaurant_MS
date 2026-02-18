@@ -4,35 +4,35 @@ spring:
 
   # MySQL Configuration
   datasource:
-    url: jdbc:mysql://localhost:3306/restaurant_db?createDatabaseIfNotExist=true
-    username: root
-    password:
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/menudb?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC}
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:orderservice@12345}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 20000
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:20000}
 
   # JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${JPA_FORMAT_SQL:true}
         dialect: org.hibernate.dialect.MySQLDialect
     open-in-view: false
 
   # MongoDB Configuration
   data:
     mongodb:
-      uri: mongodb://localhost:27017/restaurant_media
+      uri: ${MONGODB_URI:}
       auto-index-creation: true
 
   # Flyway Configuration
   flyway:
-    enabled: false
+    enabled: ${FLYWAY_ENABLED:false}
     locations: classpath:db/migration
     baseline-on-migrate: true
 
@@ -43,20 +43,48 @@ spring:
       max-file-size: 5MB
       max-request-size: 10MB
 
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8082}
+
 # Server Configuration
 server:
-  port: 8081
+  port: ${PORT:8082}
+  shutdown: graceful
   error:
     include-message: always
     include-binding-errors: always
 
+# Management endpoints for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      enabled: true
+      show-details: ${HEALTH_SHOW_DETAILS:when-authorized}
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
 # Logging Configuration
 logging:
   level:
-    com.restaurant.menu_service: INFO
-    org.springframework.web: INFO
-    org.springframework.data.mongodb: DEBUG
-    org.hibernate.SQL: DEBUG
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.restaurant.menu_service: ${LOG_LEVEL_APP:INFO}
+    org.springframework.web: ${LOG_LEVEL_WEB:INFO}
+    org.springframework.data.mongodb: ${LOG_LEVEL_MONGO:DEBUG}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:DEBUG}
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

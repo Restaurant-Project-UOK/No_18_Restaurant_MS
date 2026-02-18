@@ -29,8 +29,8 @@ public class MenuService {
     private final CategoryRepository categoryRepository;
     private final MediaService mediaService;
 
-    @Value("${server.port:8080}")
-    private String serverPort;
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     /**
      * Get all available menu items (Customer view)
@@ -177,21 +177,20 @@ public class MenuService {
      */
     @Transactional
     public void deleteMenuItem(Long itemId) {
-        log.info("Deleting menu item: {}", itemId);
+        log.info("Permanently deleting menu item: {}", itemId);
 
         MenuItem item = menuItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Menu item", "id", itemId));
 
-        // Soft delete
-        item.setIsActive(false);
-        menuItemRepository.save(item);
-
-        // Optionally delete image
+        // Delete image from MongoDB first
         if (item.getImageId() != null) {
             mediaService.deleteImage(item.getImageId());
         }
 
-        log.info("Menu item deleted successfully: {}", itemId);
+        // Hard delete from MySQL
+        menuItemRepository.delete(item);
+
+        log.info("Menu item and associated resources deleted permanently: {}", itemId);
     }
 
     /**
@@ -200,7 +199,7 @@ public class MenuService {
     private MenuItemResponse toResponse(MenuItem item) {
         String imageUrl = null;
         if (item.getImageId() != null && !item.getImageId().isEmpty()) {
-            imageUrl = String.format("http://localhost:%s/api/media/%s", serverPort, item.getImageId());
+            imageUrl = String.format("%s/api/media/%s", baseUrl, item.getImageId());
         }
 
         Set<MenuItemResponse.CategoryInfo> categoryInfos = item.getCategories().stream()

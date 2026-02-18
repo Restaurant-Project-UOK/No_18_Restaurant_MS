@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 import java.util.List;
 
 /**
@@ -38,30 +40,53 @@ public class AdminMenuController {
     }
 
     /**
-     * Create new menu item with optional image
+     * Create new menu item WITHOUT image (JSON only)
      * POST /api/admin/menu
      */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping
     public ResponseEntity<MenuItemResponse> createMenuItem(
+            @Valid @RequestBody CreateMenuItemRequest request) {
+        log.info("POST /api/admin/menu - Creating menu item without image: {}", request.getName());
+        MenuItemResponse response = menuService.createMenuItem(request, null);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Create new menu item WITH image (Multipart)
+     * POST /api/admin/menu/with-image
+     */
+    @PostMapping(value = "/with-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<MenuItemResponse> createMenuItemWithImage(
             @Valid @RequestPart("menuItem") CreateMenuItemRequest request,
-            @RequestPart(value = "image", required = false) MultipartFile image
-    ) {
-        log.info("POST /api/admin/menu - name: {}", request.getName());
+            @RequestPart("image") MultipartFile image) {
+        log.info("POST /api/admin/menu/with-image - Creating menu item with image: {}", request.getName());
         MenuItemResponse response = menuService.createMenuItem(request, image);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * Update existing menu item
+     * Update existing menu item WITHOUT image (JSON only)
      * PUT /api/admin/menu/{itemId}
      */
-    @PutMapping(value = "/{itemId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping("/{itemId}")
     public ResponseEntity<MenuItemResponse> updateMenuItem(
             @PathVariable Long itemId,
+            @Valid @RequestBody UpdateMenuItemRequest request) {
+        log.info("PUT /api/admin/menu/{} - Updating menu item without image", itemId);
+        MenuItemResponse response = menuService.updateMenuItem(itemId, request, null);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update existing menu item WITH image (Multipart)
+     * PUT /api/admin/menu/{itemId}/with-image
+     */
+    @PutMapping(value = "/{itemId}/with-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<MenuItemResponse> updateMenuItemWithImage(
+            @PathVariable Long itemId,
             @Valid @RequestPart("menuItem") UpdateMenuItemRequest request,
-            @RequestPart(value = "image", required = false) MultipartFile image
-    ) {
-        log.info("PUT /api/admin/menu/{} - updating menu item", itemId);
+            @RequestPart("image") MultipartFile image) {
+        log.info("PUT /api/admin/menu/{}/with-image - Updating menu item with image", itemId);
         MenuItemResponse response = menuService.updateMenuItem(itemId, request, image);
         return ResponseEntity.ok(response);
     }
@@ -73,8 +98,7 @@ public class AdminMenuController {
     @PatchMapping("/{itemId}/availability")
     public ResponseEntity<MenuItemResponse> updateAvailability(
             @PathVariable Long itemId,
-            @RequestParam Boolean isActive
-    ) {
+            @RequestParam Boolean isActive) {
         log.info("PATCH /api/admin/menu/{}/availability - isActive: {}", itemId, isActive);
         MenuItemResponse response = menuService.updateAvailability(itemId, isActive);
         return ResponseEntity.ok(response);
@@ -85,11 +109,11 @@ public class AdminMenuController {
      * DELETE /api/admin/menu/{itemId}
      */
     @DeleteMapping("/{itemId}")
-    public ResponseEntity<Void> deleteMenuItem(@PathVariable Long itemId) {
-        log.info("DELETE /api/admin/menu/{}", itemId);
+    public ResponseEntity<Map<String, String>> deleteMenuItem(@PathVariable Long itemId) {
+        log.info("DELETE /api/admin/menu/{} - Hard delete", itemId);
         menuService.deleteMenuItem(itemId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(Map.of(
+                "message", "Menu item with ID " + itemId + " has been permanently deleted from all storage systems."));
     }
 
 }
-

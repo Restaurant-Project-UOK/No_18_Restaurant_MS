@@ -1,0 +1,15 @@
+.git
+.gitignore
+.github
+target
+Dockerfile
+README.md
+mvnw
+mvnw.cmd
+.mvn
+*.md
+*.py
+*.txt
+*.sql
+.idea
+.vscode

@@ -11,7 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "items")
+@Table(name = "menu_items")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,14 +35,14 @@ public class MenuItem {
     @Column(name = "image_id")
     private String imageId;
 
-    @Column(name = "is_active")
+    @Column(name = "is_available")
     @Builder.Default
     private Boolean isActive = true;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
-        name = "item_categories",
-        joinColumns = @JoinColumn(name = "item_id"),
+        name = "menu_item_categories",
+        joinColumns = @JoinColumn(name = "menu_item_id"),
         inverseJoinColumns = @JoinColumn(name = "category_id")
     )
     @Builder.Default

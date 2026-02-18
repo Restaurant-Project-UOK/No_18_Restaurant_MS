@@ -1,47 +1,45 @@
 package com.restaurant.menu_service.controller;
 
-import com.restaurant.menu_service.api.ApiResponse;
-import com.restaurant.menu_service.dto.*;
+import com.restaurant.menu_service.dto.CategoryResponse;
 import com.restaurant.menu_service.service.CategoryService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Public endpoints for viewing categories
+ */
 @RestController
+@RequestMapping("/api/categories")
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/restaurants/{restaurantId}/categories")
+@Slf4j
 public class CategoryController {
-    private final CategoryService service;
 
-    @PostMapping
-    public ResponseEntity<ApiResponse<CategoryResponseDTO>> create(@PathVariable String restaurantId,
-            @Valid @RequestBody CategoryRequestDTO dto) {
-        dto.setRestaurantId(restaurantId);
-        CategoryResponseDTO created = service.create(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                ApiResponse.<CategoryResponseDTO>builder().success(true).message("Created").data(created).build());
-    }
+    private final CategoryService categoryService;
 
+    /**
+     * Get all categories (Public - No Auth Required)
+     * GET /api/categories
+     */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<CategoryResponseDTO>>> list(@PathVariable String restaurantId) {
-        return ResponseEntity.ok(ApiResponse.<List<CategoryResponseDTO>>builder().success(true).message("OK")
-                .data(service.list(restaurantId)).build());
+    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
+        log.info("GET /api/categories - public endpoint");
+        List<CategoryResponse> categories = categoryService.getAllCategories();
+        return ResponseEntity.ok(categories);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<CategoryResponseDTO>> update(@PathVariable String restaurantId,
-            @PathVariable String id, @Valid @RequestBody CategoryRequestDTO dto) {
-        dto.setRestaurantId(restaurantId);
-        return ResponseEntity.ok(ApiResponse.<CategoryResponseDTO>builder().success(true).message("Updated")
-                .data(service.update(id, dto)).build());
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable String restaurantId, @PathVariable String id) {
-        service.delete(id);
-        return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("Deleted").build());
+    /**
+     * Get single category by ID (Public - No Auth Required)
+     * GET /api/categories/{categoryId}
+     */
+    @GetMapping("/{categoryId}")
+    public ResponseEntity<CategoryResponse> getCategory(@PathVariable Long categoryId) {
+        log.info("GET /api/categories/{} - public endpoint", categoryId);
+        CategoryResponse category = categoryService.getCategory(categoryId);
+        return ResponseEntity.ok(category);
     }
 }
+
