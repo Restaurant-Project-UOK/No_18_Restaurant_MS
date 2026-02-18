@@ -2,6 +2,7 @@
  * API Configuration - Gateway & Service Endpoints
  * Gateway Base URL: https://gateway-app.mangofield-91faac5e.southeastasia.azurecontainerapps.io
  */
+import { setAccessToken, setRefreshToken, getRefreshToken, getStoredUser, clearAuthStorage } from '../utils/cookieStorage';
 
 export const API_CONFIG = {
   // Use environment variable if available, fallback to hosted gateway
@@ -67,8 +68,8 @@ export const apiRequest = async <T = Record<string, unknown>>(
     headers['Authorization'] = `Bearer ${jwt}`;
   }
 
-  // Add role from localStorage if available (for internal service communication)
-  const storedUser = localStorage.getItem('auth_user');
+  // Add role from cookie storage if available (for internal service communication)
+  const storedUser = getStoredUser();
   if (storedUser) {
     try {
       const user = JSON.parse(storedUser);
@@ -92,21 +93,24 @@ export const apiRequest = async <T = Record<string, unknown>>(
 
   // Handle 401 Unauthorized - Attempt Refresh
   if (response.status === 401 && !_isRetry) {
-    const refreshToken = localStorage.getItem('auth_refresh_token');
+    const storedRefreshToken = getRefreshToken();
 
-    if (refreshToken) {
+    if (storedRefreshToken) {
       try {
         console.log('[apiRequest] 401 detected, attempting token refresh...');
         const refreshResponse = await fetch(getApiUrl(`${API_CONFIG.AUTH_ENDPOINT}/refresh`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
+          body: JSON.stringify({ refreshToken: storedRefreshToken }),
         });
 
         if (refreshResponse.ok) {
           const data = await refreshResponse.json();
-          // Update storage with new access token
-          localStorage.setItem('auth_access_token', data.accessToken);
+          // Update cookies with new access token AND refresh token
+          setAccessToken(data.accessToken);
+          if (data.refreshToken) {
+            setRefreshToken(data.refreshToken);
+          }
           console.log('[apiRequest] Token refresh successful, retrying request...');
 
           // Retry original request with new token
@@ -124,11 +128,8 @@ export const apiRequest = async <T = Record<string, unknown>>(
     }
 
     // If refresh failed or no refresh token, perform logout
-    console.warn('[apiRequest] Session expired, clearing storage and redirecting');
-    localStorage.removeItem('auth_access_token');
-    localStorage.removeItem('auth_refresh_token');
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_user_id');
+    console.warn('[apiRequest] Session expired, clearing cookies and redirecting');
+    clearAuthStorage();
     window.location.href = '/login';
     throw new Error('Unauthorized. Please login again.');
   }

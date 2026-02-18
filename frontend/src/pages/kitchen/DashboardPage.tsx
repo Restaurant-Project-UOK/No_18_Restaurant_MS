@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { kitchenService, KitchenOrder } from '../../services/kitchenService';
 import { MdNewReleases, MdWarning, MdCheckCircle, MdPerson, MdRefresh } from 'react-icons/md';
 import { FaChalkboardUser } from 'react-icons/fa6';
+import { getAccessToken } from '../../utils/cookieStorage';
 
 import { OrderStatus } from '../../types';
 
@@ -26,7 +27,7 @@ export default function KitchenDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('auth_access_token') || undefined;
+      const token = getAccessToken() || undefined;
       const orders = await kitchenService.getKitchenOrders(token);
       setKitchenOrders(orders);
     } catch (err) {
@@ -45,7 +46,7 @@ export default function KitchenDashboardPage() {
   const handleStartPreparing = async (orderId: string) => {
     setActionLoading(orderId);
     try {
-      const token = localStorage.getItem('auth_access_token') || undefined;
+      const token = getAccessToken() || undefined;
       await kitchenService.markOrderPreparing(orderId, token);
       await loadOrders();
     } catch (err) {
@@ -58,7 +59,7 @@ export default function KitchenDashboardPage() {
   const handleMarkReady = async (orderId: string) => {
     setActionLoading(orderId);
     try {
-      const token = localStorage.getItem('auth_access_token') || undefined;
+      const token = getAccessToken() || undefined;
       await kitchenService.markOrderReady(orderId, token);
       await loadOrders();
     } catch (err) {

@@ -1,4 +1,5 @@
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -33,7 +34,7 @@ export interface UpdateProfileRequest {
  */
 export const getMyProfile = async (accessToken?: string): Promise<UserProfile> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('No access token provided');
     }
@@ -67,7 +68,7 @@ export const updateMyProfile = async (
   accessToken?: string
 ): Promise<UserProfile> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('No access token provided');
     }

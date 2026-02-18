@@ -1,4 +1,5 @@
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -50,7 +51,7 @@ export const analyticsService = {
    */
   getSummary: async (startDate?: string, endDate?: string): Promise<AnalyticsSummary> => {
     try {
-      const token = localStorage.getItem('auth_access_token');
+      const token = getAccessToken();
       let url = `${API_CONFIG.ANALYTICS_ENDPOINT}/summary`;
 
       const params = new URLSearchParams();
@@ -75,7 +76,7 @@ export const analyticsService = {
    */
   getTopItems: async (): Promise<TopItem[]> => {
     try {
-      const token = localStorage.getItem('auth_access_token');
+      const token = getAccessToken();
       return await apiRequest<TopItem[]>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/top-items`,
         { jwt: token || undefined }
@@ -91,7 +92,7 @@ export const analyticsService = {
    */
   getDailyForecast: async (): Promise<DailyForecast[]> => {
     try {
-      const token = localStorage.getItem('auth_access_token');
+      const token = getAccessToken();
       return await apiRequest<DailyForecast[]>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/forecast/daily`,
         { jwt: token || undefined }
@@ -107,7 +108,7 @@ export const analyticsService = {
    */
   getHourlyForecast: async (): Promise<HourlyForecast[]> => {
     try {
-      const token = localStorage.getItem('auth_access_token');
+      const token = getAccessToken();
       return await apiRequest<HourlyForecast[]>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/forecast/hourly`,
         { jwt: token || undefined }
@@ -124,7 +125,7 @@ export const analyticsService = {
    */
   getHourlyOrders: async (): Promise<HourlyBreakdown[]> => {
     try {
-      const token = localStorage.getItem('auth_access_token');
+      const token = getAccessToken();
       return await apiRequest<HourlyBreakdown[]>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/hourly`,
         { jwt: token || undefined }
@@ -140,7 +141,7 @@ export const analyticsService = {
    */
   getHealthLogs: async (): Promise<HealthLog[]> => {
     try {
-      const token = localStorage.getItem('auth_access_token');
+      const token = getAccessToken();
       return await apiRequest<HealthLog[]>(
         `${API_CONFIG.ANALYTICS_ENDPOINT}/health`,
         { jwt: token || undefined }

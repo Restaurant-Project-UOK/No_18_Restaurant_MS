@@ -1,5 +1,6 @@
 import { Order } from '../types';
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -52,7 +53,7 @@ export interface CheckoutResponse {
  */
 const openCart = async (accessToken?: string): Promise<CartOpenResponse> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -87,7 +88,7 @@ const addCartItem = async (
   accessToken?: string
 ): Promise<CartItemResponse> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -125,7 +126,7 @@ const updateCartItem = async (
   accessToken?: string
 ): Promise<CartItemResponse> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -157,7 +158,7 @@ const updateCartItem = async (
  */
 const deleteCartItem = async (itemId: string, accessToken?: string): Promise<void> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -187,7 +188,7 @@ const deleteCartItem = async (itemId: string, accessToken?: string): Promise<voi
  */
 const checkout = async (accessToken?: string): Promise<CheckoutResponse> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -227,7 +228,7 @@ const checkout = async (accessToken?: string): Promise<CheckoutResponse> => {
  */
 const getOrder = async (orderId: string, accessToken?: string): Promise<Order> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }

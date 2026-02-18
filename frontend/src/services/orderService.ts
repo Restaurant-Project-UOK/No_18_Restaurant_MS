@@ -1,5 +1,6 @@
 import { Order, OrderStatus } from '../types';
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken, getStoredUser } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -45,13 +46,13 @@ export const createOrder = async (
   accessToken?: string
 ): Promise<Order> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
 
     // Get userId from stored user
-    const storedUser = localStorage.getItem('auth_user');
+    const storedUser = getStoredUser();
     const user = storedUser ? JSON.parse(storedUser) : undefined;
     const userId = user?.id;
     const userRole = user?.role;
@@ -107,7 +108,7 @@ export const updateOrderStatus = async (
   accessToken?: string
 ): Promise<Order> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -162,7 +163,7 @@ export const getUserOrders = async (
   accessToken?: string
 ): Promise<Order[]> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -197,7 +198,7 @@ export const getTableOrders = async (
   accessToken?: string
 ): Promise<Order[]> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -234,7 +235,7 @@ export const getOrderById = async (
   accessToken?: string
 ): Promise<Order> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
 
     const response = await apiRequest<Order>(
       `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}`,

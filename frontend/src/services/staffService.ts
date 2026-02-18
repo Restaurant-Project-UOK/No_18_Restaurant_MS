@@ -1,5 +1,6 @@
 import { Staff } from '../types';
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken } from '../utils/cookieStorage';
 
 /**
  * Staff Service - Handles staff management via Admin endpoints
@@ -11,7 +12,7 @@ export const staffService = {
      */
     getAllStaff: async (accessToken?: string): Promise<Staff[]> => {
         try {
-            const token = accessToken || localStorage.getItem('auth_access_token');
+            const token = accessToken || getAccessToken();
             return await apiRequest<Staff[]>(
                 `${API_CONFIG.ADMIN_ENDPOINT}/users`,
                 { jwt: token || undefined }
@@ -32,7 +33,7 @@ export const staffService = {
         accessToken?: string
     ): Promise<Staff> => {
         try {
-            const token = accessToken || localStorage.getItem('auth_access_token');
+            const token = accessToken || getAccessToken();
             return await apiRequest<Staff>(
                 `${API_CONFIG.ADMIN_ENDPOINT}/staff/${staffId}/status`,
                 {
@@ -53,7 +54,7 @@ export const staffService = {
      */
     createStaff: async (staffData: any, accessToken?: string): Promise<string> => {
         try {
-            const token = accessToken || localStorage.getItem('auth_access_token');
+            const token = accessToken || getAccessToken();
             return await apiRequest<string>(
                 `${API_CONFIG.ADMIN_ENDPOINT}/staff`,
                 {

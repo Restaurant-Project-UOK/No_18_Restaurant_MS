@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useMemo, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { MenuItem, MenuCategory } from '../types';
 import { menuService } from '../services/menuService';
 import { useAuth } from './AuthContext';
@@ -27,13 +27,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
 
-  // Load initial data on mount
-  useEffect(() => {
-    refreshMenuData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
-
-  const refreshMenuData = async () => {
+  const refreshMenuData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -57,24 +51,35 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const getItemsByCategory = (categoryName: string) => {
-    return menuItems.filter((item) =>
-      item.categories.some(cat => cat.name === categoryName)
-    );
-  };
+  // Load initial data on mount
+  useEffect(() => {
+    refreshMenuData();
+  }, [isAuthenticated, refreshMenuData]);
 
-  const searchItems = (query: string) => {
-    const lowerQuery = query.toLowerCase();
-    return menuItems.filter(
-      (item) =>
-        item.name.toLowerCase().includes(lowerQuery) ||
-        item.description.toLowerCase().includes(lowerQuery)
-    );
-  };
+  const getItemsByCategory = useCallback(
+    (categoryName: string) => {
+      return menuItems.filter((item) =>
+        item.categories.some(cat => cat.name === categoryName)
+      );
+    },
+    [menuItems]
+  );
 
-  const updateMenuItem = async (id: number, updates: Partial<MenuItem>, jwtToken?: string) => {
+  const searchItems = useCallback(
+    (query: string) => {
+      const lowerQuery = query.toLowerCase();
+      return menuItems.filter(
+        (item) =>
+          item.name.toLowerCase().includes(lowerQuery) ||
+          item.description.toLowerCase().includes(lowerQuery)
+      );
+    },
+    [menuItems]
+  );
+
+  const updateMenuItem = useCallback(async (id: number, updates: Partial<MenuItem>, jwtToken?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -90,9 +95,9 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const createMenuItem = async (formData: FormData, jwtToken: string): Promise<MenuItem> => {
+  const createMenuItem = useCallback(async (formData: FormData, jwtToken: string): Promise<MenuItem> => {
     setLoading(true);
     setError(null);
 
@@ -110,9 +115,9 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshMenuData]);
 
-  const deleteMenuItem = async (id: number, jwtToken: string): Promise<void> => {
+  const deleteMenuItem = useCallback(async (id: number, jwtToken: string): Promise<void> => {
     setLoading(true);
     setError(null);
 
@@ -128,9 +133,9 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const toggleAvailability = async (
+  const toggleAvailability = useCallback(async (
     id: number,
     isActive: boolean,
     jwtToken: string
@@ -152,7 +157,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -168,8 +173,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       deleteMenuItem,
       toggleAvailability,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [menuItems, categories, loading, error]
+    [menuItems, categories, loading, error, getItemsByCategory, searchItems, updateMenuItem, refreshMenuData, createMenuItem, deleteMenuItem, toggleAvailability]
   );
 
   return (
@@ -186,4 +190,3 @@ export const useMenu = () => {
   }
   return context;
 };
-

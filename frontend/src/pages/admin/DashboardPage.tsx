@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useOrders } from '../../context/OrderContext';
@@ -66,14 +66,19 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Refresh all data on mount or tab change
+  // Refresh data once when the overview tab is first loaded.
+  // Context providers already load data on mount, so this is a one-time refresh
+  // to ensure freshness when switching back to the overview tab.
+  const hasLoadedOverview = useRef(false);
   useEffect(() => {
-    if (activeTab === 'overview') {
+    if (activeTab === 'overview' && !hasLoadedOverview.current) {
+      hasLoadedOverview.current = true;
       refreshOrders();
       refreshMenuData();
       refreshTables();
     }
-  }, [activeTab, refreshOrders, refreshMenuData, refreshTables]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Menu edit state
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);

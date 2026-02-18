@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { Table, TableStatus } from '../types';
 import { tableService } from '../services/tableService';
-import { useAuth } from './AuthContext';
+import { getAccessToken } from '../utils/cookieStorage';
 
 interface TableContextType {
   tables: Table[];
@@ -22,13 +22,12 @@ export const TableProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getJwtToken } = useAuth();
 
   const refreshTables = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const jwt = getJwtToken() || undefined;
+      const jwt = getAccessToken() || undefined;
       const data = await tableService.getAllTables(jwt);
       setTables(data);
     } catch (err) {
@@ -36,15 +35,16 @@ export const TableProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoading(false);
     }
-  }, [getJwtToken]);
+  }, []);
 
+  // Load tables once on mount
   useEffect(() => {
     refreshTables();
   }, [refreshTables]);
 
   const updateTableStatus = useCallback(async (tableId: string, status: TableStatus) => {
     try {
-      const jwt = getJwtToken() || undefined;
+      const jwt = getAccessToken() || undefined;
       const updatedTable = await tableService.updateTableStatus(tableId, status, jwt);
       setTables((prev) =>
         prev.map((table) => (table.id === tableId ? updatedTable : table))
@@ -53,7 +53,7 @@ export const TableProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       console.error('Failed to update table status:', err);
       throw err;
     }
-  }, [getJwtToken]);
+  }, []);
 
   const getTableById = useCallback(
     (tableId: string) => {

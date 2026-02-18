@@ -6,6 +6,7 @@ import { useCart } from '../../context/CartContext';
 import { useOrders } from '../../context/OrderContext';
 import { Order, OrderStatus, MenuItem } from '../../types';
 import { MdRestaurant, MdHistory, MdShoppingCart, MdPerson, MdCheckCircle, MdAdd, MdRemove, MdSearch, MdClose } from 'react-icons/md';
+import { getAccessToken } from '../../utils/cookieStorage';
 
 export default function CustomerHomePage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function CustomerHomePage() {
 
   // Initialize cart session when menu page loads (POST /api/cart/open)
   useEffect(() => {
-    const token = localStorage.getItem('auth_access_token');
+    const token = getAccessToken();
     if (token) {
       initCart(token).catch((err: unknown) => {
         console.warn('[HomePage] Cart init failed (may already be open):', err);
@@ -68,7 +69,7 @@ export default function CustomerHomePage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_access_token');
+      const token = getAccessToken();
       if (!token) {
         navigate('/login');
         return;

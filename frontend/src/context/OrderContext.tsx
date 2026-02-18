@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useCallback, useMemo, ReactNode, u
 import { Order, OrderStatus } from '../types';
 import { orderService } from '../services/orderService';
 import { useAuth } from './AuthContext';
+import { getAccessToken } from '../utils/cookieStorage';
 
 interface OrderContextType {
   orders: Order[];
@@ -30,7 +31,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingAPI, setLoadingAPI] = useState(false);
   const [errorAPI, setErrorAPI] = useState<string | null>(null);
-  const { getJwtToken, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const refreshOrders = useCallback(async () => {
     setLoadingAPI(true);
@@ -51,7 +52,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
-      const jwt = getJwtToken() || undefined;
+      const jwt = getAccessToken() || undefined;
       if (jwt) {
         const userOrders = await orderService.getUserOrders(jwt);
         setOrders(userOrders);
@@ -62,7 +63,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoadingAPI(false);
     }
-  }, [getJwtToken]);
+  }, []);
 
   // Load orders on mount — only when authenticated
   useEffect(() => {
@@ -127,7 +128,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
-      const jwt = getJwtToken() || undefined;
+      const jwt = getAccessToken() || undefined;
       const newOrder = await orderService.createOrder(tableId, jwt);
       // Add to local state
       setOrders((prev) => [...prev, newOrder]);
@@ -139,13 +140,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoadingAPI(false);
     }
-  }, [getJwtToken]);
+  }, []);
 
   const updateOrderStatusAPI = useCallback(async (orderId: string, status: OrderStatus): Promise<Order> => {
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
-      const jwt = getJwtToken() || undefined;
+      const jwt = getAccessToken() || undefined;
       const updatedOrder = await orderService.updateOrderStatus(orderId, { status }, jwt);
       // Update local state
       setOrders((prev) =>
@@ -159,7 +160,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoadingAPI(false);
     }
-  }, [getJwtToken]);
+  }, []);
 
   const getActiveOrdersAPI = useCallback(async (): Promise<Order[]> => {
     setLoadingAPI(true);
@@ -180,7 +181,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
-      const jwt = getJwtToken() || undefined;
+      const jwt = getAccessToken() || undefined;
       const userOrders = await orderService.getUserOrders(jwt);
       return userOrders;
     } catch (error) {
@@ -190,13 +191,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoadingAPI(false);
     }
-  }, [getJwtToken]);
+  }, []);
 
   const getTableOrdersAPI = useCallback(async (tableId: number): Promise<Order[]> => {
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
-      const jwt = getJwtToken() || undefined;
+      const jwt = getAccessToken() || undefined;
       const tableOrders = await orderService.getTableOrders(tableId, jwt);
       return tableOrders;
     } catch (error) {
@@ -206,7 +207,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoadingAPI(false);
     }
-  }, [getJwtToken]);
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -244,6 +245,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       loadingAPI,
       errorAPI,
       refreshOrders,
+      loadUserHistory,
     ]
   );
 

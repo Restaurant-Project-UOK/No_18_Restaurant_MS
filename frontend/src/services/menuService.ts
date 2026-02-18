@@ -1,5 +1,6 @@
 import { MenuItem, MenuCategory } from '../types';
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -70,7 +71,7 @@ const createMenuItemWithImage = async (
   jwtToken?: string
 ): Promise<MenuItem> => {
   try {
-    const token = jwtToken || localStorage.getItem('auth_access_token');
+    const token = jwtToken || getAccessToken();
     if (!token) throw new Error('Unauthorized: No access token');
 
     return await apiRequest<MenuItem>(
@@ -97,7 +98,7 @@ const updateMenuItemAvailability = async (
   jwtToken?: string
 ): Promise<void> => {
   try {
-    const token = jwtToken || localStorage.getItem('auth_access_token');
+    const token = jwtToken || getAccessToken();
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest(
@@ -119,7 +120,7 @@ const updateMenuItemAvailability = async (
  */
 const deleteMenuItem = async (id: number, jwtToken?: string): Promise<void> => {
   try {
-    const token = jwtToken || localStorage.getItem('auth_access_token');
+    const token = jwtToken || getAccessToken();
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest(
@@ -145,7 +146,7 @@ const updateMenuItem = async (
   jwtToken?: string
 ): Promise<MenuItem> => {
   try {
-    const token = jwtToken || localStorage.getItem('auth_access_token');
+    const token = jwtToken || getAccessToken();
     if (!token) throw new Error('Unauthorized: No access token');
 
     return await apiRequest<MenuItem>(

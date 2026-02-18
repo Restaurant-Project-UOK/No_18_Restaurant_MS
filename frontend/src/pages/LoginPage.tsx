@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { MdRestaurant, MdLogin, MdQrCode2 } from 'react-icons/md';
+import { getAccessToken, setAccessToken, getRefreshToken, setRefreshToken, clearAuthStorage } from '../utils/cookieStorage';
 
 // ============================================================
 // Helpers
@@ -67,8 +68,8 @@ export default function LoginPage() {
   // ----------------------------------------------------------
   useEffect(() => {
     const handleExistingSession = async () => {
-      const accessToken = localStorage.getItem('auth_access_token');
-      const refreshToken = localStorage.getItem('auth_refresh_token');
+      const accessToken = getAccessToken();
+      const refreshTokenStored = getRefreshToken();
 
       // Helper: redirect based on a valid access token
       const redirectFromToken = (token: string): boolean => {
@@ -99,17 +100,17 @@ export default function LoginPage() {
       }
 
       // 2️⃣ Access token expired — try refresh token silently
-      if (refreshToken) {
+      if (refreshTokenStored) {
         try {
-          const refreshed = await authService.refreshAccessToken({ refreshToken });
-          localStorage.setItem('auth_access_token', refreshed.accessToken);
+          const refreshed = await authService.refreshAccessToken({ refreshToken: refreshTokenStored });
+          setAccessToken(refreshed.accessToken);
+          if (refreshed.refreshToken) {
+            setRefreshToken(refreshed.refreshToken);
+          }
           if (redirectFromToken(refreshed.accessToken)) return;
         } catch {
-          // Refresh failed (expired/revoked) — clear stale tokens
-          localStorage.removeItem('auth_access_token');
-          localStorage.removeItem('auth_refresh_token');
-          localStorage.removeItem('auth_user');
-          localStorage.removeItem('auth_user_id');
+          // Refresh failed (expired/revoked) — clear stale cookies
+          clearAuthStorage();
         }
       }
 
@@ -144,11 +145,11 @@ export default function LoginPage() {
       // If a customer already has a valid token but scanned a NEW table QR,
       // we need fresh tokens with the new tableId embedded.
       // We call authService.login directly to get the raw token response,
-      // then update localStorage and AuthContext state via the normal login flow.
+      // then update cookies and AuthContext state via the normal login flow.
       await login(email, password, tableIdFromUrl);
 
       // Read role and tableId from the freshly stored JWT
-      const token = localStorage.getItem('auth_access_token') || '';
+      const token = getAccessToken() || '';
       const payload = decodeJwt(token);
       const role = Number(payload.role ?? 1);
       const jwtTableId = Number(payload.tableId ?? 0);

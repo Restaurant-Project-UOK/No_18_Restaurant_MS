@@ -1,5 +1,6 @@
 import { Order, OrderStatus } from '../types';
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -52,7 +53,7 @@ export interface HealthCheckResponse {
  */
 const getReceivedOrders = async (accessToken?: string): Promise<WaiterOrder[]> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -93,7 +94,7 @@ const updateOrderStatus = async (
   accessToken?: string
 ): Promise<StatusUpdateResponse> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -135,7 +136,7 @@ const getOrdersByTable = async (
   accessToken?: string
 ): Promise<Order[]> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }

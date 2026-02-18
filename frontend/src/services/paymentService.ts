@@ -1,4 +1,5 @@
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -94,7 +95,7 @@ const getPaymentDetails = async (
   accessToken?: string
 ): Promise<PaymentDetails> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
@@ -130,7 +131,7 @@ const updatePaymentStatus = async (
   accessToken?: string
 ): Promise<PaymentDetails> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
+    const token = accessToken || getAccessToken();
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }

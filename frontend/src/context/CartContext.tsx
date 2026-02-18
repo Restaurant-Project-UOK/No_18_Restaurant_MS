@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { MenuItem, Order } from '../types';
 import { cartService, CartItemRequest } from '../services/cartService';
 import { paymentService, CreatePaymentResponse } from '../services/paymentService';
+import { getAccessToken } from '../utils/cookieStorage';
 
 export interface CartItem {
   id: string;
@@ -41,7 +42,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('auth_access_token') || undefined;
+        const token = getAccessToken() || undefined;
 
         // 1. Init cart if needed
         let currentCartId = cartId;
@@ -90,43 +91,50 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [cartId]
   );
 
-  const removeFromCart = useCallback(async (itemId: number) => {
+  // Use a ref to always have the latest cartItems for async callbacks
+  const cartItemsRef = useRef(cartItems);
+  cartItemsRef.current = cartItems;
+
+  const removeFromCart = useCallback(async (menuItemId: number) => {
+    // Find the backend cart item ID using the menu item ID
+    const itemToDelete = cartItemsRef.current.find(item => item.menuItem.id === menuItemId);
+    if (!itemToDelete) return;
+
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('auth_access_token') || undefined;
-      const itemToDelete = cartItems.find(item => item.menuItem.id === itemId);
-      if (itemToDelete) {
-        await cartService.deleteCartItem(itemToDelete.id, token);
-      }
-      setCartItems((prev) => prev.filter((item) => item.menuItem.id !== itemId));
+      const token = getAccessToken() || undefined;
+      // DELETE /api/cart/items/{itemId} — uses backend cart item ID
+      await cartService.deleteCartItem(itemToDelete.id, token);
+      setCartItems((prev) => prev.filter((item) => item.menuItem.id !== menuItemId));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove from cart');
     } finally {
       setLoading(false);
     }
-  }, [cartItems]);
+  }, []);
 
-  const updateQuantity = useCallback(async (itemId: number, quantity: number) => {
+  const updateQuantity = useCallback(async (menuItemId: number, quantity: number) => {
+    // If quantity drops to 0 or below, delete the item
     if (quantity <= 0) {
-      removeFromCart(itemId);
+      await removeFromCart(menuItemId);
       return;
     }
+
+    // Find the backend cart item ID using the menu item ID
+    const itemToUpdate = cartItemsRef.current.find(item => item.menuItem.id === menuItemId);
+    if (!itemToUpdate) return;
 
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('auth_access_token') || undefined;
-
-      // Find the cart item ID (backend ID)
-      const itemToUpdate = cartItems.find(item => item.menuItem.id === itemId);
-      if (itemToUpdate) {
-        await cartService.updateCartItem(itemToUpdate.id, { quantity }, token);
-      }
+      const token = getAccessToken() || undefined;
+      // PUT /api/cart/items/{itemId} — uses backend cart item ID
+      await cartService.updateCartItem(itemToUpdate.id, { quantity }, token);
 
       setCartItems((prev) =>
         prev.map((item) =>
-          item.menuItem.id === itemId ? { ...item, quantity } : item
+          item.menuItem.id === menuItemId ? { ...item, quantity } : item
         )
       );
     } catch (err) {
@@ -134,7 +142,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [cartItems, removeFromCart]);
+  }, [removeFromCart]);
 
   const clearCart = useCallback(() => {
     setCartItems([]);

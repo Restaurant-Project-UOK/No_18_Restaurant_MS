@@ -11,6 +11,7 @@ import {
   MdTableBar, MdPayment, MdCheckCircle, MdAccessTime, MdAttachMoney,
   MdNotifications, MdDeliveryDining
 } from 'react-icons/md';
+import { getAccessToken } from '../../utils/cookieStorage';
 
 export default function WaiterDashboardPage() {
   const navigate = useNavigate();
@@ -55,7 +56,7 @@ export default function WaiterDashboardPage() {
   // Load ready orders from waiter service
   const loadReadyOrders = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth_access_token') || undefined;
+      const token = getAccessToken() || undefined;
       const received = await waiterService.getReceivedOrders(token);
       // WaiterOrder from backend has no status field — all received orders are READY
       setReadyOrders(received);
@@ -124,7 +125,7 @@ export default function WaiterDashboardPage() {
   const handleMarkAsServed = async (orderId: string) => {
     setServeLoading(orderId);
     try {
-      const token = localStorage.getItem('auth_access_token') || undefined;
+      const token = getAccessToken() || undefined;
       // Use waiterService: PATCH /api/waiter/orders/{id}/served
       await waiterService.markOrderServed(orderId, token);
       await loadReadyOrders();

@@ -1,4 +1,5 @@
 import { apiRequest, API_CONFIG } from '../config/api';
+import { getAccessToken, getUserId } from '../utils/cookieStorage';
 
 // ============================================
 // TYPES & INTERFACES
@@ -49,6 +50,7 @@ export interface RefreshTokenRequest {
 // Maps to TokenRefreshResponseDto from backend
 export interface RefreshTokenResponse {
   accessToken: string;
+  refreshToken?: string;  // Backend may issue a new refresh token
   tokenType: string;
   expiresIn: number; // milliseconds
 }
@@ -179,8 +181,8 @@ export const refreshAccessToken = async (refreshData: RefreshTokenRequest): Prom
  */
 export const logout = async (accessToken?: string, userId?: number): Promise<string> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
-    const storedUserId = userId || parseInt(localStorage.getItem('auth_user_id') || '0', 10);
+    const token = accessToken || getAccessToken();
+    const storedUserId = userId || parseInt(getUserId() || '0', 10);
 
     if (!token) {
       throw new Error('No access token provided');

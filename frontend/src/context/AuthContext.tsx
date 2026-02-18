@@ -4,6 +4,7 @@ import { AuthState, UserRole, User } from '../types';
 import { authService, LoginRequest, RegisterRequest } from '../services/authService';
 import { profileService, UpdateProfileRequest } from '../services/profileService';
 import { staffService } from '../services/staffService';
+import { getAccessToken, setAccessToken, getRefreshToken, setRefreshToken, getStoredUser, setStoredUser, getUserId, setUserId, clearAuthStorage } from '../utils/cookieStorage';
 
 /** Decode a JWT payload without verifying signature */
 const decodeJwtPayload = (token: string): Record<string, unknown> => {
@@ -36,15 +37,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     error: null,
   });
 
-  // Restore session from localStorage on mount
+  // Restore session from cookies on mount
   useEffect(() => {
     const restoreSession = async () => {
-      const storedToken = localStorage.getItem('auth_access_token');
-      const storedUser = localStorage.getItem('auth_user');
+      const storedToken = getAccessToken();
+      const storedUserJson = getStoredUser();
 
-      if (storedToken && storedUser) {
+      if (storedToken && storedUserJson) {
         try {
-          const user = JSON.parse(storedUser);
+          const user = JSON.parse(storedUserJson);
           setAuthState({
             user,
             token: storedToken,
@@ -54,11 +55,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           });
         } catch (error) {
           console.error('Failed to restore session:', error);
-          // Clear invalid session data
-          localStorage.removeItem('auth_access_token');
-          localStorage.removeItem('auth_refresh_token');
-          localStorage.removeItem('auth_user');
-          localStorage.removeItem('auth_user_id');
+          clearAuthStorage();
           setAuthState(prev => ({ ...prev, loading: false }));
         }
       } else {
@@ -76,9 +73,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const loginData: LoginRequest = { email, password, tableId: tableId || 0 };
       const response = await authService.login(loginData);
 
-      // Store tokens first so profile fetch can use them
-      localStorage.setItem('auth_access_token', response.accessToken);
-      localStorage.setItem('auth_refresh_token', response.refreshToken);
+      // Store tokens in cookies so profile fetch can use them
+      setAccessToken(response.accessToken);
+      setRefreshToken(response.refreshToken);
 
       // Decode JWT to get id and role (backend doesn't return user object)
       const payload = decodeJwtPayload(response.accessToken);
@@ -111,8 +108,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       console.log('[AuthContext] User data after login:', user);
 
-      localStorage.setItem('auth_user', JSON.stringify(user));
-      localStorage.setItem('auth_user_id', user.id.toString());
+      setStoredUser(JSON.stringify(user));
+      setUserId(user.id.toString());
 
       setAuthState({
         user,
@@ -136,8 +133,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth_access_token');
-      const userIdStr = localStorage.getItem('auth_user_id');
+      const token = getAccessToken();
+      const userIdStr = getUserId();
       const userId = userIdStr ? parseInt(userIdStr, 10) : undefined;
 
       if (token) {
@@ -146,7 +143,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear state and storage regardless of API response
+      // Clear state and cookies regardless of API response
       setAuthState({
         user: null,
         token: null,
@@ -154,10 +151,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading: false,
         error: null,
       });
-      localStorage.removeItem('auth_access_token');
-      localStorage.removeItem('auth_refresh_token');
-      localStorage.removeItem('auth_user');
-      localStorage.removeItem('auth_user_id');
+      clearAuthStorage();
     }
   }, []);
 
@@ -197,7 +191,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateProfile = useCallback(
     async (name: string, phone: string, address: string) => {
-      const token = authState.token || localStorage.getItem('auth_access_token');
+      const token = authState.token || getAccessToken();
       if (!authState.user || !token) return;
 
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
@@ -222,7 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           loading: false,
         }));
 
-        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+        setStoredUser(JSON.stringify(updatedUser));
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Profile update failed';
         setAuthState((prev) => ({
@@ -265,19 +259,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 
   const getJwtToken = useCallback((): string | null => {
-    const token = localStorage.getItem('auth_access_token');
+    const token = getAccessToken();
     return token || authState.token;
   }, [authState.token]);
 
   const refreshToken = useCallback(async () => {
-    const refreshTok = localStorage.getItem('auth_refresh_token');
+    const refreshTok = getRefreshToken();
     if (!refreshTok) {
       throw new Error('No refresh token available');
     }
 
     try {
       const response = await authService.refreshAccessToken({ refreshToken: refreshTok });
-      localStorage.setItem('auth_access_token', response.accessToken);
+      // Store both new access token and new refresh token
+      setAccessToken(response.accessToken);
+      if (response.refreshToken) {
+        setRefreshToken(response.refreshToken);
+      }
       setAuthState((prev) => ({ ...prev, token: response.accessToken }));
     } catch (error) {
       await logout();
