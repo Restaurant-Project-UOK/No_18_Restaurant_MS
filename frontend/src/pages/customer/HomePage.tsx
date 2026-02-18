@@ -5,9 +5,10 @@ import { useMenu } from '../../context/MenuContext';
 import { useCart } from '../../context/CartContext';
 import { useOrders } from '../../context/OrderContext';
 import { Order, OrderStatus, MenuItem } from '../../types';
-import { MdRestaurant, MdHistory, MdShoppingCart, MdPerson, MdCheckCircle, MdAdd, MdRemove, MdSearch, MdClose, MdLocalDining, MdRoomService, MdReceiptLong, MdPayment, MdAccessTime } from 'react-icons/md';
+import { MdRestaurant, MdHistory, MdShoppingCart, MdPerson, MdCheckCircle, MdAdd, MdRemove, MdSearch, MdClose, MdLocalDining, MdRoomService, MdReceiptLong, MdPayment, MdAccessTime, MdLocalOffer } from 'react-icons/md';
 import { getAccessToken } from '../../utils/cookieStorage';
 import { paymentService } from '../../services/paymentService';
+import { promotionService, Promotion } from '../../services/promotionService';
 import { ChatbotWidget } from '../../components/ChatbotWidget';
 
 export default function CustomerHomePage() {
@@ -28,6 +29,8 @@ export default function CustomerHomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [lastOrderId, setLastOrderId] = useState('');
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [showPromotions, setShowPromotions] = useState(false);
 
   // Get Table ID
   const [searchParams] = useSearchParams();
@@ -50,6 +53,19 @@ export default function CustomerHomePage() {
     setShowOrderHistory(true);
     await loadUserHistory();
   };
+
+  // Fetch promotions on load
+  useEffect(() => {
+    const fetchPromotions = async () => {
+      try {
+        const data = await promotionService.getAvailablePromotions();
+        setPromotions(data);
+      } catch (error) {
+        console.error('Failed to load promotions:', error);
+      }
+    };
+    fetchPromotions();
+  }, []);
 
   let menuItems = getItemsByCategory(activeCategory || (categories[0]?.name || ''));
 
@@ -371,13 +387,13 @@ export default function CustomerHomePage() {
                     const stepIndex = currentStepIndex === -1 && order.status === OrderStatus.CREATED ? 0 : currentStepIndex;
 
                     return (
-                      <div key={order.id} className="bg-brand-darker border border-brand-border p-5 rounded-xl shadow-lg hover:border-brand-primary/50 transition-colors">
+                      <div key={String(order.id)} className="bg-brand-darker border border-brand-border p-5 rounded-xl shadow-lg hover:border-brand-primary/50 transition-colors">
                         {/* Header */}
                         <div className="flex flex-wrap gap-4 items-start justify-between mb-6 border-b border-brand-border/50 pb-4">
                           <div>
                             <div className="flex items-baseline gap-2">
-                              <span className="text-lg font-bold text-white">Order #{order.id.slice(-6)}</span>
-                              <span className="text-xs text-gray-500 font-mono">{order.id}</span>
+                              <span className="text-lg font-bold text-white">Order #{String(order.id).slice(-6)}</span>
+                              <span className="text-xs text-gray-500 font-mono">{String(order.id)}</span>
                             </div>
                             <p className="text-xs text-gray-400 mt-1">
                               {new Date(order.createdAt || order.orderTime || Date.now()).toLocaleString()}
@@ -420,13 +436,16 @@ export default function CustomerHomePage() {
 
                         {/* Items */}
                         <div className="bg-black/20 rounded-lg p-3 mb-4 space-y-2">
-                          {order.items.map((item: { id: string; quantity: number; itemName?: string; menuItem?: { name: string } }) => (
+                          {order.items.map((item) => (
                             <div key={item.id} className="flex items-center justify-between text-sm">
                               <div className="flex items-center gap-2">
                                 <span className="w-5 h-5 flex items-center justify-center bg-gray-800 text-gray-400 rounded text-xs font-medium">
                                   {item.quantity}
                                 </span>
                                 <span className="text-gray-300">{item.itemName || item.menuItem?.name || 'Item'}</span>
+                              </div>
+                              <div className="text-gray-400">
+                                ${(item.unitPrice ?? item.price ?? 0).toFixed(2)}
                               </div>
                             </div>
                           ))}
@@ -462,8 +481,8 @@ export default function CustomerHomePage() {
                               </button>
                             )
                           ) : (
-                            <div className="text-xs text-gray-500 font-medium italic flex items-center gap-1">
-                              Wait for "Served" status to pay
+                            <div className="text-xs text-brand-primary font-medium italic flex items-center gap-1 bg-brand-primary/10 px-3 py-1 rounded">
+                              <MdAccessTime /> Wait for "Served" status to pay
                             </div>
                           )}
                         </div>
@@ -578,6 +597,78 @@ export default function CustomerHomePage() {
           </>
         )}
       </div>
+
+
+      {/* Floating Promotion Icon */}
+      {promotions.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowPromotions(true)}
+            className="fixed bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 bg-gradient-to-r from-pink-500 to-rose-500 rounded-full shadow-lg shadow-pink-500/30 flex items-center justify-center text-white hover:scale-110 transition-transform z-40 animate-bounce"
+          >
+            <MdLocalOffer className="text-2xl" />
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 text-black text-xs font-bold rounded-full flex items-center justify-center border-2 border-brand-dark">
+              {promotions.length}
+            </span>
+          </button>
+
+          {/* Promotions Modal */}
+          {showPromotions && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+              <div className="bg-brand-darker border border-brand-border rounded-xl max-w-lg w-full p-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 to-rose-500"></div>
+                <button
+                  onClick={() => setShowPromotions(false)}
+                  className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white rounded-lg transition-colors"
+                >
+                  <MdClose className="text-xl" />
+                </button>
+
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-pink-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MdLocalOffer className="text-3xl text-pink-500" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Special Offers</h3>
+                  <p className="text-gray-400">Limited time promotions just for you!</p>
+                </div>
+
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {promotions.map((promo) => (
+                    <div key={promo.id} className="bg-gradient-to-br from-brand-dark to-brand-darker border border-brand-border p-4 rounded-lg relative overflow-hidden group hover:border-pink-500/50 transition-colors">
+                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <MdLocalOffer className="text-6xl text-pink-500" />
+                      </div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <div>
+                          <h4 className="text-lg font-bold text-white mb-1 group-hover:text-pink-400 transition-colors">{promo.name}</h4>
+                          <p className="text-sm text-gray-400 mb-3">
+                            Valid until {new Date(promo.endAt).toLocaleDateString()}
+                          </p>
+                          <div className="inline-flex items-baseline gap-1 bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/20">
+                            <span className="text-xl font-bold text-pink-500">
+                              {promo.discountType === 'PERCENTAGE' ? `${promo.discountValue}%` : `$${promo.discountValue}`}
+                            </span>
+                            <span className="text-xs font-semibold text-pink-400 uppercase tracking-wide">OFF</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-brand-border text-center">
+                  <button
+                    onClick={() => setShowPromotions(false)}
+                    className="text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* MOBILE BOTTOM ACTION BAR - Fixed */}
       {!showCart && !showOrderHistory && (

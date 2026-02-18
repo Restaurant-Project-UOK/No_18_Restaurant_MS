@@ -15,7 +15,7 @@ export default function AdminDashboardPage() {
   const { user, addStaff, getJwtToken } = useAuth();
   const { orders, updateOrderStatusAPI, refreshOrders } = useOrders();
   const { menuItems, categories, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData, toggleAvailability } = useMenu();
-  const { tables, refreshTables } = useTables();
+  const { refreshTables } = useTables();
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'staff' | 'menu' | 'promotions' | 'analytics'>('overview');
 
   // Analytics state
@@ -510,7 +510,7 @@ export default function AdminDashboardPage() {
   const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount ?? order.totalPrice ?? 0), 0);
   const completedOrders = orders.filter((o) => o.status === OrderStatus.SERVED).length;
   const pendingOrders = orders.filter((o) => o.status === OrderStatus.CREATED).length;
-  const availableTables = tables.filter((t) => t.status === 'available').length;
+
 
   return (
     <div className="min-h-screen bg-brand-dark">
@@ -576,10 +576,6 @@ export default function AdminDashboardPage() {
               <div className="stat-card">
                 <p className="text-gray-400 text-sm font-medium mb-2">Total Revenue</p>
                 <p className="text-4xl font-bold text-brand-primary">${totalRevenue.toFixed(2)}</p>
-              </div>
-              <div className="stat-card">
-                <p className="text-gray-400 text-sm font-medium mb-2">Available Tables</p>
-                <p className="text-4xl font-bold text-purple-400">{availableTables}/12</p>
               </div>
             </div>
 
@@ -1033,7 +1029,6 @@ export default function AdminDashboardPage() {
                         <th className="px-6 py-3 text-left">Role</th>
                         <th className="px-6 py-3 text-left">Email</th>
                         <th className="px-6 py-3 text-left">Phone</th>
-                        <th className="px-6 py-3 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border">
@@ -1041,7 +1036,7 @@ export default function AdminDashboardPage() {
                         .filter(staff => staffFilter === 'all' || staff.role === staffFilter)
                         .length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                          <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                             No users found for this filter.
                           </td>
                         </tr>
@@ -1075,16 +1070,6 @@ export default function AdminDashboardPage() {
                               </td>
                               <td className="px-6 py-4 text-sm text-gray-400 font-mono">
                                 {staff.phone || staff.profile?.phone || '-'}
-                              </td>
-                              <td className="px-6 py-4 text-center">
-                                {staff.status && (
-                                  <span className={`px-2 py-1 rounded text-xs font-medium capitalize border ${String(staff.status).toLowerCase() === 'active' ? 'bg-green-900/20 text-green-400 border-green-900' :
-                                    String(staff.status).toLowerCase() === 'inactive' ? 'bg-red-900/20 text-red-400 border-red-900' :
-                                      'bg-yellow-900/20 text-yellow-400 border-yellow-900'
-                                    }`}>
-                                    {staff.status}
-                                  </span>
-                                )}
                               </td>
                             </tr>
                           ))
