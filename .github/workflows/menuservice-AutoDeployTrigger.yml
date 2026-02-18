@@ -1,0 +1,76 @@
+name: Menu Service CI/CD
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  push:
+    branches: [ dev_disara ]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build Spring Boot jar
+        working-directory: services/menu-service
+        run: mvn -B -DskipTests package
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: false
+          environment: azurecloud
+          allow-no-subscriptions: false
+          audience: api://AzureADTokenExchange
+          auth-type: SERVICE_PRINCIPAL
+
+      - name: Log in to ACR (Docker)
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push Docker image
+        env:
+          IMAGE: ${{ secrets.ACR_LOGIN_SERVER }}/menu-service:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE services/menu-service
+          docker push $IMAGE
+
+      - name: Deploy Container App (create or update)
+        env:
+          IMAGE: ${{ secrets.ACR_LOGIN_SERVER }}/menu-service:${{ github.sha }}
+        run: |
+          set -e
+          if az containerapp show --name menu-service --resource-group ${{ secrets.RESOURCE_GROUP }} >/dev/null 2>&1; then
+            az containerapp update \
+              --name menu-service \
+              --resource-group ${{ secrets.RESOURCE_GROUP }} \
+              --image $IMAGE
+          else
+            az containerapp create \
+              --resource-group ${{ secrets.RESOURCE_GROUP }} \
+              --name menu-service \
+              --environment ${{ secrets.ENV_NAME }} \
+              --image $IMAGE \
+              --ingress external \
+              --target-port 8080 \
+              --registry-server ${{ secrets.ACR_LOGIN_SERVER }} \
+              --registry-username ${{ secrets.ACR_USERNAME }} \
+              --registry-password ${{ secrets.ACR_PASSWORD }}
+          fi

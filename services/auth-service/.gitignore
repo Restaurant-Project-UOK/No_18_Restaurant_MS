@@ -1,0 +1,24 @@
+# Markdown files
+*.md
+
+# Application properties
+application.properties
+application.yml
+application.yaml
+
+# Environment files
+.env
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log

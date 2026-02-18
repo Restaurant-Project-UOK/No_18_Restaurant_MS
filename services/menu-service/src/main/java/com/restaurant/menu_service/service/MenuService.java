@@ -1,88 +1,227 @@
 package com.restaurant.menu_service.service;
 
-import com.restaurant.menu_service.dto.ItemRequestDTO;
-import com.restaurant.menu_service.dto.ItemResponseDTO;
-import com.restaurant.menu_service.entity.Item;
-import com.restaurant.menu_service.entity.Restaurant;
-import com.restaurant.menu_service.repository.ItemRepository;
-import com.restaurant.menu_service.repository.RestaurantRepository;
-import jakarta.persistence.EntityNotFoundException;
+import com.restaurant.menu_service.dto.CreateMenuItemRequest;
+import com.restaurant.menu_service.dto.MenuItemResponse;
+import com.restaurant.menu_service.dto.UpdateMenuItemRequest;
+import com.restaurant.menu_service.entity.Category;
+import com.restaurant.menu_service.entity.MenuItem;
+import com.restaurant.menu_service.exception.ResourceNotFoundException;
+import com.restaurant.menu_service.repository.CategoryRepository;
+import com.restaurant.menu_service.repository.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor 
+@RequiredArgsConstructor
+@Slf4j
 public class MenuService {
 
-   private final ItemRepository itemRepository;
-    private final RestaurantRepository restaurantRepository;
+    private final MenuItemRepository menuItemRepository;
+    private final CategoryRepository categoryRepository;
+    private final MediaService mediaService;
 
-    @Transactional
-    public ItemResponseDTO createItem(Long restaurantId, ItemRequestDTO requestDTO) {
-        Restaurant restaurant = restaurantRepository.findById(restaurantId)
-            .orElseThrow(() -> new EntityNotFoundException("Restaurant not found with id: " + restaurantId));
+    @Value("${server.port:8080}")
+    private String serverPort;
 
-        Item item = new Item();
-        item.setRestaurant(restaurant);
-        item.setName(requestDTO.name());
-        item.setDescription(requestDTO.description());
-        item.setPrice(requestDTO.price());
-        item.setImageId(requestDTO.imageId());
-        item.setDietary(requestDTO.dietary());
-        item.set_active(requestDTO.is_active());
-
-        Item savedItem = itemRepository.save(item);
-        return mapToResponseDTO(savedItem);
-    }
-
+    /**
+     * Get all available menu items (Customer view)
+     */
     @Transactional(readOnly = true)
-    public List<ItemResponseDTO> getAllItemsByRestaurant(Long restaurantId) {
-        if (!restaurantRepository.existsById(restaurantId)) {
-            throw new EntityNotFoundException("Restaurant not found with id: " + restaurantId);
-        }
-        return itemRepository.findByRestaurantId(restaurantId).stream()
-                .map(this::mapToResponseDTO)
+    public List<MenuItemResponse> getAvailableMenuItems() {
+        log.info("Fetching available menu items");
+        List<MenuItem> items = menuItemRepository.findByIsActive(true);
+        return items.stream()
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
-    
-    @Transactional
-    public ItemResponseDTO updateItem(Long restaurantId, Long itemId, ItemRequestDTO requestDTO) {
-        Item item = itemRepository.findByIdAndRestaurantId(itemId, restaurantId)
-                .orElseThrow(() -> new EntityNotFoundException("Item not found with id: " + itemId + " for restaurant " + restaurantId));
 
-        item.setName(requestDTO.name());
-        item.setDescription(requestDTO.description());
-        item.setPrice(requestDTO.price());
-        item.setImageId(requestDTO.imageId());
-        item.setDietary(requestDTO.dietary());
-        item.set_active(requestDTO.is_active());
-
-        Item updatedItem = itemRepository.save(item);
-        return mapToResponseDTO(updatedItem);
+    /**
+     * Get all menu items (Admin view)
+     */
+    @Transactional(readOnly = true)
+    public List<MenuItemResponse> getAllMenuItems() {
+        log.info("Fetching all menu items");
+        List<MenuItem> items = menuItemRepository.findAll();
+        return items.stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
+    /**
+     * Get single menu item by ID
+     */
+    @Transactional(readOnly = true)
+    public MenuItemResponse getMenuItem(Long itemId) {
+        log.info("Fetching menu item: {}", itemId);
+        MenuItem item = menuItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item", "id", itemId));
+        return toResponse(item);
+    }
+
+    /**
+     * Create new menu item with optional image
+     */
     @Transactional
-    public void deleteItem(Long restaurantId, Long itemId) {
-        if (!itemRepository.existsByIdAndRestaurantId(itemId, restaurantId)) {
-            throw new EntityNotFoundException("Item not found with id: " + itemId + " for restaurant " + restaurantId);
+    public MenuItemResponse createMenuItem(CreateMenuItemRequest request, MultipartFile image) {
+        log.info("Creating menu item: {}", request.getName());
+
+        // Upload image if provided
+        String imageId = null;
+        if (image != null && !image.isEmpty()) {
+            imageId = mediaService.uploadImage(image);
         }
-        itemRepository.deleteById(itemId);
+
+        // Get categories
+        Set<Category> categories = new HashSet<>();
+        if (request.getCategoryIds() != null && !request.getCategoryIds().isEmpty()) {
+            categories = request.getCategoryIds().stream()
+                    .map(id -> categoryRepository.findById(id)
+                            .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id)))
+                    .collect(Collectors.toSet());
+        }
+
+        // Create menu item
+        MenuItem item = MenuItem.builder()
+                .name(request.getName())
+                .description(request.getDescription())
+                .price(request.getPrice())
+                .imageId(imageId)
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .categories(categories)
+                .build();
+
+        MenuItem savedItem = menuItemRepository.save(item);
+        log.info("Menu item created successfully with ID: {}", savedItem.getId());
+
+        return toResponse(savedItem);
     }
-    
-    private ItemResponseDTO mapToResponseDTO(Item item) {
-        return new ItemResponseDTO(
-            item.getId(),
-            item.getRestaurant().getId(),
-            item.getName(),
-            item.getDescription(),
-            item.getPrice(),
-            item.getImageId(),
-            item.getDietary(),
-            item.is_active()
-        );
+
+    /**
+     * Update existing menu item with optional image
+     */
+    @Transactional
+    public MenuItemResponse updateMenuItem(Long itemId, UpdateMenuItemRequest request, MultipartFile image) {
+        log.info("Updating menu item: {}", itemId);
+
+        MenuItem item = menuItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item", "id", itemId));
+
+        // Update image if provided
+        if (image != null && !image.isEmpty()) {
+            // Delete old image
+            if (item.getImageId() != null) {
+                mediaService.deleteImage(item.getImageId());
+            }
+            // Upload new image
+            String newImageId = mediaService.uploadImage(image);
+            item.setImageId(newImageId);
+        }
+
+        // Update fields
+        if (request.getName() != null) {
+            item.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            item.setDescription(request.getDescription());
+        }
+        if (request.getPrice() != null) {
+            item.setPrice(request.getPrice());
+        }
+        if (request.getIsActive() != null) {
+            item.setIsActive(request.getIsActive());
+        }
+
+        // Update categories
+        if (request.getCategoryIds() != null) {
+            Set<Category> categories = request.getCategoryIds().stream()
+                    .map(id -> categoryRepository.findById(id)
+                            .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id)))
+                    .collect(Collectors.toSet());
+            item.setCategories(categories);
+        }
+
+        MenuItem updatedItem = menuItemRepository.save(item);
+        log.info("Menu item updated successfully: {}", itemId);
+
+        return toResponse(updatedItem);
     }
+
+    /**
+     * Toggle menu item availability
+     */
+    @Transactional
+    public MenuItemResponse updateAvailability(Long itemId, Boolean isActive) {
+        log.info("Updating availability for menu item: {} to {}", itemId, isActive);
+
+        MenuItem item = menuItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item", "id", itemId));
+
+        item.setIsActive(isActive);
+        MenuItem updatedItem = menuItemRepository.save(item);
+
+        log.info("Menu item availability updated: {}", itemId);
+        return toResponse(updatedItem);
+    }
+
+    /**
+     * Soft delete menu item (set isActive = false)
+     */
+    @Transactional
+    public void deleteMenuItem(Long itemId) {
+        log.info("Deleting menu item: {}", itemId);
+
+        MenuItem item = menuItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item", "id", itemId));
+
+        // Soft delete
+        item.setIsActive(false);
+        menuItemRepository.save(item);
+
+        // Optionally delete image
+        if (item.getImageId() != null) {
+            mediaService.deleteImage(item.getImageId());
+        }
+
+        log.info("Menu item deleted successfully: {}", itemId);
+    }
+
+    /**
+     * Convert entity to DTO
+     */
+    private MenuItemResponse toResponse(MenuItem item) {
+        String imageUrl = null;
+        if (item.getImageId() != null && !item.getImageId().isEmpty()) {
+            imageUrl = String.format("http://localhost:%s/api/media/%s", serverPort, item.getImageId());
+        }
+
+        Set<MenuItemResponse.CategoryInfo> categoryInfos = item.getCategories().stream()
+                .map(category -> MenuItemResponse.CategoryInfo.builder()
+                        .id(category.getId())
+                        .name(category.getName())
+                        .sortOrder(category.getSortOrder())
+                        .build())
+                .collect(Collectors.toSet());
+
+        return MenuItemResponse.builder()
+                .id(item.getId())
+                .name(item.getName())
+                .description(item.getDescription())
+                .price(item.getPrice())
+                .imageUrl(imageUrl)
+                .isActive(item.getIsActive())
+                .categories(categoryInfos)
+                .createdAt(item.getCreatedAt())
+                .updatedAt(item.getUpdatedAt())
+                .build();
+    }
+
 }

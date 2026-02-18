@@ -1,0 +1,51 @@
+# Azure Container App YAML template for `menu-service`
+# Replace placeholders (`<...>`) before deploying.
+# Usage: az containerapp create --resource-group <RG> --name menu-service --yaml azure-container-app.yml
+# Or: az containerapp update --resource-group <RG> --name menu-service --yaml azure-container-app.yml
+
+name: menu-service
+resourceGroup: <RESOURCE_GROUP>
+location: <LOCATION> # e.g., eastus, westeurope
+managedEnvironmentId: /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.App/managedEnvironments/<ENV_NAME>
+
+properties:
+  environmentId: /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.App/managedEnvironments/<ENV_NAME>
+  configuration:
+    activeRevisionsMode: single
+    ingress:
+      external: true
+      targetPort: 8080
+      transport: auto
+    registries:
+      - server: <ACR_LOGIN_SERVER> # e.g. menuserviceacr.azurecr.io
+        username: <ACR_USERNAME>
+        password: <ACR_PASSWORD>
+    secrets:
+      - name: acr-password
+        value: <ACR_PASSWORD>
+  template:
+    containers:
+      - name: menu-service
+        image: <ACR_LOGIN_SERVER>/menu-service:latest
+        resources:
+          cpu: 0.5
+          memory: 1.0Gi
+        env:
+          - name: SPRING_PROFILES_ACTIVE
+            value: prod
+          - name: SPRING_DATASOURCE_URL
+            value: "jdbc:mysql://<MYSQL_HOST>:3306/<DB_NAME>?useSSL=false&serverTimezone=UTC"
+          - name: SPRING_DATASOURCE_USERNAME
+            value: <MYSQL_USERNAME>
+          - name: SPRING_DATASOURCE_PASSWORD
+            value: <MYSQL_PASSWORD>
+          - name: SPRING_DATA_MONGODB_URI
+            value: "mongodb://<MONGO_USERNAME>:<MONGO_PASSWORD>@<MONGO_HOST>:27017/<MONGO_DB>?authSource=admin"
+    scale:
+      minReplicas: 1
+      maxReplicas: 3
+      rules:
+        - name: http-requests
+          http:
+            metadata:
+              concurrentRequests: 100

@@ -1,14 +1,14 @@
 package com.example.auth_service.DTO;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-
 public class LoginRequestDto {
     private String email;
-    private String password; // null if Google OAuth
+    private String password;
+    @JsonProperty(defaultValue = "0")
+    private int tableId = 0;
 }

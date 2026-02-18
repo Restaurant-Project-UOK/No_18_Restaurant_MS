@@ -1,51 +1,48 @@
 package com.restaurant.menu_service.controller;
 
-import com.restaurant.menu_service.dto.ItemRequestDTO;
-import com.restaurant.menu_service.dto.ItemResponseDTO;
+import com.restaurant.menu_service.dto.MenuItemResponse;
 import com.restaurant.menu_service.service.MenuService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Customer-facing menu endpoints
+ */
 @RestController
-@RequestMapping("/api/v1/restaurants/{restaurantId}/items") 
+@RequestMapping("/api/menu")
 @RequiredArgsConstructor
+@Slf4j
 public class MenuController {
 
     private final MenuService menuService;
 
-    @PostMapping
-    public ResponseEntity<ItemResponseDTO> createItem(
-            @PathVariable Long restaurantId,
-            @Valid @RequestBody ItemRequestDTO itemRequest) {
-        ItemResponseDTO createdItem = menuService.createItem(restaurantId, itemRequest);
-        return new ResponseEntity<>(createdItem, HttpStatus.CREATED);
-    }
-
+    /**
+     * Get available menu items
+     * GET /api/menu
+     */
     @GetMapping
-    public ResponseEntity<List<ItemResponseDTO>> getAllItemsByRestaurant(@PathVariable Long restaurantId) {
-        List<ItemResponseDTO> items = menuService.getAllItemsByRestaurant(restaurantId);
+    public ResponseEntity<List<MenuItemResponse>> getMenuItems() {
+        log.info("GET /api/menu");
+        List<MenuItemResponse> items = menuService.getAvailableMenuItems();
         return ResponseEntity.ok(items);
     }
 
-    @PutMapping("/{itemId}")
-    public ResponseEntity<ItemResponseDTO> updateItem(
-            @PathVariable Long restaurantId,
-            @PathVariable Long itemId,
-            @Valid @RequestBody ItemRequestDTO itemRequest) {
-        ItemResponseDTO updatedItem = menuService.updateItem(restaurantId, itemId, itemRequest);
-        return ResponseEntity.ok(updatedItem);
+    /**
+     * Get single menu item by ID
+     * GET /api/menu/{itemId}
+     */
+    @GetMapping("/{itemId}")
+    public ResponseEntity<MenuItemResponse> getMenuItem(
+            @PathVariable Long itemId
+    ) {
+        log.info("GET /api/menu/{}", itemId);
+        MenuItemResponse item = menuService.getMenuItem(itemId);
+        return ResponseEntity.ok(item);
     }
 
-    @DeleteMapping("/{itemId}")
-    public ResponseEntity<Void> deleteItem(
-            @PathVariable Long restaurantId,
-            @PathVariable Long itemId) {
-        menuService.deleteItem(restaurantId, itemId);
-        return ResponseEntity.noContent().build();
-    }
 }
+
