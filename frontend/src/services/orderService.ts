@@ -41,7 +41,7 @@ export interface UserOrderSummary {
  * @returns Created order
  */
 export const createOrder = async (
-  tableId: number,
+  tableId?: number,
   accessToken?: string
 ): Promise<Order> => {
   try {
@@ -52,7 +52,23 @@ export const createOrder = async (
 
     // Get userId from stored user
     const storedUser = localStorage.getItem('auth_user');
-    const userId = storedUser ? JSON.parse(storedUser)?.id : undefined;
+    const user = storedUser ? JSON.parse(storedUser) : undefined;
+    const userId = user?.id;
+    const userRole = user?.role;
+
+    // Use provided tableId or fallback to cookie if customer
+    let effectiveTableId = tableId;
+    if (!effectiveTableId) {
+      const cookieMatch = document.cookie.match(/(?:^|;\s*)tableId=(\d+)/);
+      if (cookieMatch) {
+        effectiveTableId = parseInt(cookieMatch[1], 10);
+      }
+    }
+
+    // If still no tableId and user is a customer, throw error
+    if (!effectiveTableId && (!userRole || userRole === 1)) {
+      throw new Error('Table ID is required for ordering');
+    }
 
     const response = await apiRequest<Order>(
       '/api/orders',
@@ -60,7 +76,7 @@ export const createOrder = async (
         method: 'POST',
         jwt: token,
         headers: {
-          'X-Table-Id': String(tableId),
+          'X-Table-Id': String(effectiveTableId),
           ...(userId ? { 'X-User-Id': String(userId) } : {}),
         },
         // Body is optional — cart service provides items

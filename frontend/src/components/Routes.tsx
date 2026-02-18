@@ -37,7 +37,11 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
   roles,
   fallback = '/login',
 }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center text-white">Loading...</div>;
+  }
 
   if (!isAuthenticated || !user) {
     return <Navigate to={fallback} replace />;
@@ -59,8 +63,12 @@ export const QRProtectedRoute: React.FC<QRProtectedRouteProps> = ({
   children,
   roles,
 }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
   const [searchParams] = useSearchParams();
+
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center text-white">Loading...</div>;
+  }
 
   // Resolve tableId: URL param takes priority, then cookie fallback
   const tableIdFromUrl = searchParams.get('tableId');

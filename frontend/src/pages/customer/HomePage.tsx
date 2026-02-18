@@ -64,6 +64,12 @@ export default function CustomerHomePage() {
         return;
       }
 
+      if (checkoutData.tableNumber) {
+        // Update tableId cookie if user entered a table number
+        const expires = new Date(Date.now() + 5 * 60 * 60 * 1000).toUTCString();
+        document.cookie = `tableId=${checkoutData.tableNumber}; expires=${expires}; path=/; SameSite=Lax`;
+      }
+
       const result = await checkoutCart(token);
       setLastOrderId(result.orderId.slice(-6));
       setCheckoutStep('confirmation');

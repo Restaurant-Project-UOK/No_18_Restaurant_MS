@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user: null,
     token: null,
     isAuthenticated: false,
-    loading: false,
+    loading: true, // Start in loading state
     error: null,
   });
 
@@ -59,7 +59,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           localStorage.removeItem('auth_refresh_token');
           localStorage.removeItem('auth_user');
           localStorage.removeItem('auth_user_id');
+          setAuthState(prev => ({ ...prev, loading: false }));
         }
+      } else {
+        setAuthState(prev => ({ ...prev, loading: false }));
       }
     };
 

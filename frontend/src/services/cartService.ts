@@ -192,11 +192,19 @@ const checkout = async (accessToken?: string): Promise<CheckoutResponse> => {
       throw new Error('Unauthorized: No access token');
     }
 
+    // Get tableId from cookie
+    let tableId: number | undefined;
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)tableId=(\d+)/);
+    if (cookieMatch) {
+      tableId = parseInt(cookieMatch[1], 10);
+    }
+
     const response = await apiRequest<CheckoutResponse>(
       '/api/cart/checkout',
       {
         method: 'POST',
         jwt: token,
+        headers: tableId ? { 'X-Table-Id': String(tableId) } : {},
       }
     );
 

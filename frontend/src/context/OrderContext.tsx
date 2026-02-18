@@ -13,7 +13,7 @@ interface OrderContextType {
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getOrdersByCustomer: (customerId: string) => Order[];
   // API methods
-  createOrderAPI: (tableId: number) => Promise<Order>;
+  createOrderAPI: (tableId?: number) => Promise<Order>;
   updateOrderStatusAPI: (orderId: string, status: OrderStatus) => Promise<Order>;
   getActiveOrdersAPI: () => Promise<Order[]>;
   getUserOrdersAPI: () => Promise<Order[]>;
@@ -115,7 +115,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // API METHODS
   // ============================================
 
-  const createOrderAPI = useCallback(async (tableId: number): Promise<Order> => {
+  const createOrderAPI = useCallback(async (tableId?: number): Promise<Order> => {
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
