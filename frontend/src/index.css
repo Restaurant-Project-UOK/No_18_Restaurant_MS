@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: 'Work Sans', system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #1a1a1a;
+  color: white;
+}
+
+@layer components {
+  .card {
+    @apply bg-brand-darker border border-brand-border rounded-lg p-6;
+  }
+  
+  .btn-primary {
+    @apply bg-brand-primary hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-brand-darker hover:bg-black border border-brand-border text-white font-semibold py-3 px-6 rounded-lg transition-colors;
+  }
+  
+  .input-field {
+    @apply w-full bg-brand-darker border border-brand-border rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-brand-primary transition-colors;
+  }
+  
+  .section-title {
+    @apply text-2xl font-bold mb-6;
+  }
+  
+  .stat-card {
+    @apply bg-brand-darker border border-brand-border rounded-lg p-6 text-center;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(244, 123, 37, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 123, 37, 0.8);
+}
