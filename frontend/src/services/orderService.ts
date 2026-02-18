@@ -7,7 +7,8 @@ import { apiRequest } from '../config/api';
 
 export interface CreateOrderRequest {
   items: {
-    itemId: string;
+    itemId: number;
+    itemName: string;
     quantity: number;
     unitPrice: number;
     specialRequests?: string;
@@ -95,7 +96,7 @@ export const updateOrderStatus = async (
     }
 
     const response = await apiRequest<Order>(
-      `/api/orders/${orderId}`,
+      `/api/orders/${orderId}/status`,
       {
         method: 'PATCH',
         jwt: token,

@@ -11,9 +11,9 @@ export default function CustomerHomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { categories, getItemsByCategory } = useMenu();
-  const { cartItems, addToCart, removeFromCart, updateQuantity, getTotalPrice, clearCart } = useCart();
-  const { addOrder, getOrdersByCustomer } = useOrders();
-  const [activeCategory, setActiveCategory] = useState('appetizers');
+  const { cartItems, addToCart, removeFromCart, updateQuantity, getTotalPrice, checkout: checkoutCart, loading: cartLoading } = useCart();
+  const { loadUserHistory, getOrdersByCustomer } = useOrders();
+  const [activeCategory, setActiveCategory] = useState<string>('');
   const [showCart, setShowCart] = useState(false);
   const [showOrderHistory, setShowOrderHistory] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'checkout' | 'confirmation'>('cart');
@@ -27,8 +27,14 @@ export default function CustomerHomePage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [lastOrderId, setLastOrderId] = useState('');
 
-  let menuItems = getItemsByCategory(activeCategory);
-  
+  // Load order history when requested
+  const handleShowHistory = async () => {
+    setShowOrderHistory(true);
+    await loadUserHistory();
+  };
+
+  let menuItems = getItemsByCategory(activeCategory || (categories[0]?.name || ''));
+
   // Filter menu items based on search query
   if (searchQuery.trim()) {
     menuItems = menuItems.filter((item) =>
@@ -36,48 +42,39 @@ export default function CustomerHomePage() {
       item.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }
-  
+
   const customerOrders = getOrdersByCustomer(user?.id || '');
 
-  const handleAddToCart = (menuItem: MenuItem) => {
-    // Workaround: useCart accepts any type but we know it's MenuItem
-    addToCart(menuItem as never, 1);
+  const handleAddToCart = async (menuItem: MenuItem) => {
+    await addToCart(menuItem as never, 1);
   };
 
   const handleProfileClick = () => {
     navigate('/profile');
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cartItems.length === 0) return;
     setLoading(true);
 
-    const newOrder: Order = {
-      id: `order_${Date.now()}`,
-      customerId: user?.id || '',
-      customerName: user?.name || 'Guest',
-      items: cartItems.map((item) => ({
-        id: `oi_${Date.now()}_${Math.random()}`,
-        menuItemId: item.menuItem.id,
-        menuItem: item.menuItem,
-        quantity: item.quantity,
-        specialRequests: item.specialRequests,
-        price: item.menuItem.price,
-      })),
-      status: OrderStatus.PENDING,
-      totalPrice: getTotalPrice(),
-      tableNumber: checkoutData.tableNumber ? Number.parseInt(checkoutData.tableNumber, 10) : undefined,
-      orderTime: new Date().toISOString(),
-      notes: checkoutData.specialRequests,
-      paymentMethod: checkoutData.paymentMethod as 'cash' | 'card' | 'digital',
-      isPaid: false,
-    };
+    try {
+      const token = localStorage.getItem('auth_access_token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
 
-    addOrder(newOrder);
-    setLastOrderId(Date.now().toString().slice(-6));
-    setCheckoutStep('confirmation');
-    clearCart();
-    setTimeout(() => setLoading(false), 500);
+      const result = await checkoutCart(token);
+      setLastOrderId(result.orderId.slice(-6));
+      setCheckoutStep('confirmation');
+
+      await loadUserHistory();
+    } catch (err) {
+      console.error('Checkout failed:', err);
+      alert('Checkout failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -148,7 +145,7 @@ export default function CustomerHomePage() {
             {/* Cart Header */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <MdShoppingCart /> 
+                <MdShoppingCart />
                 {checkoutStep === 'confirmation' ? 'Order Confirmed' : 'Your Order'}
               </h2>
               <button
@@ -201,7 +198,7 @@ export default function CustomerHomePage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1)}
-                              disabled={loading}
+                              disabled={cartLoading}
                               className="p-1 bg-brand-dark border border-brand-border rounded hover:bg-black transition-colors disabled:opacity-50"
                             >
                               <MdRemove className="text-white" />
@@ -209,7 +206,7 @@ export default function CustomerHomePage() {
                             <span className="w-6 text-center text-sm font-semibold text-white">{item.quantity}</span>
                             <button
                               onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1)}
-                              disabled={loading}
+                              disabled={cartLoading}
                               className="p-1 bg-brand-dark border border-brand-border rounded hover:bg-black transition-colors disabled:opacity-50"
                             >
                               <MdAdd className="text-white" />
@@ -217,7 +214,8 @@ export default function CustomerHomePage() {
                           </div>
                           <button
                             onClick={() => removeFromCart(item.menuItem.id)}
-                            className="text-red-400 hover:text-red-300 text-xs font-semibold transition-colors"
+                            disabled={cartLoading}
+                            className="text-red-400 hover:text-red-300 text-xs font-semibold transition-colors disabled:opacity-50"
                           >
                             Remove
                           </button>
@@ -298,7 +296,7 @@ export default function CustomerHomePage() {
                       </button>
                       <button
                         onClick={handleCheckout}
-                        disabled={loading}
+                        disabled={loading || cartLoading}
                         className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                       >
                         Place Order
@@ -327,27 +325,26 @@ export default function CustomerHomePage() {
               {customerOrders.length === 0 ? (
                 <p className="text-center text-gray-400 py-8">No orders yet</p>
               ) : (
-                customerOrders.map((order) => (
+                customerOrders.map((order: Order) => (
                   <div key={order.id} className="bg-brand-darker border border-brand-border p-3 rounded-lg">
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <p className="font-semibold text-white text-sm">Order #{order.id.slice(-6)}</p>
                         <p className="text-xs text-gray-400">{new Date(order.orderTime).toLocaleDateString()}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        order.status === OrderStatus.PENDING 
-                          ? 'bg-yellow-900/30 text-yellow-300' 
-                          : order.status === OrderStatus.PREPARING 
-                          ? 'bg-blue-900/30 text-blue-300' 
-                          : order.status === OrderStatus.READY 
-                          ? 'bg-green-900/30 text-green-300' 
-                          : 'bg-gray-900/30 text-gray-300'
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${order.status === OrderStatus.PENDING
+                        ? 'bg-yellow-900/30 text-yellow-300'
+                        : order.status === OrderStatus.PREPARING
+                          ? 'bg-blue-900/30 text-blue-300'
+                          : order.status === OrderStatus.READY
+                            ? 'bg-green-900/30 text-green-300'
+                            : 'bg-gray-900/30 text-gray-300'
+                        }`}>
                         {order.status.toUpperCase()}
                       </span>
                     </div>
                     <div className="space-y-1 mb-2 pb-2 border-b border-brand-border">
-                      {order.items.map((item) => (
+                      {order.items.map((item: any) => (
                         <p key={item.id} className="text-xs text-gray-300">
                           {item.quantity}x {item.menuItem.name}
                         </p>
@@ -384,21 +381,20 @@ export default function CustomerHomePage() {
 
             {/* CATEGORY TABS - Horizontal Scroll - Hidden when searching */}
             {!searchQuery.trim() && (
-            <div className="bg-brand-darker border-b border-brand-border px-3 py-3 flex gap-2 overflow-x-auto flex-shrink-0">
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-colors flex-shrink-0 ${
-                    activeCategory === category.id
+              <div className="bg-brand-darker border-b border-brand-border px-3 py-3 flex gap-2 overflow-x-auto flex-shrink-0">
+                {categories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setActiveCategory(category.name)}
+                    className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-colors flex-shrink-0 ${(activeCategory || categories[0]?.name) === category.name
                       ? 'bg-brand-primary text-white'
                       : 'bg-brand-dark text-gray-300 border border-brand-border hover:border-brand-primary'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
+                      }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
             )}
 
             {/* MENU ITEMS - Vertical Stack */}
@@ -407,23 +403,28 @@ export default function CustomerHomePage() {
                 <div key={item.id} className="bg-brand-darker border border-brand-border rounded-lg overflow-hidden hover:border-brand-primary transition-colors">
                   <div className="flex gap-3 p-3">
                     {/* Item Image */}
-                    <div className="text-4xl flex-shrink-0">{item.image}</div>
-                    
+                    <div className="w-16 h-16 bg-brand-dark flex items-center justify-center rounded-lg overflow-hidden flex-shrink-0">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <MdRestaurant className="text-2xl text-gray-500" />
+                      )}
+                    </div>
+
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-white text-sm mb-1">{item.name}</h3>
                       <p className="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
-                      
+
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-bold text-brand-primary">${item.price.toFixed(2)}</span>
                         <button
                           onClick={() => handleAddToCart(item)}
-                          disabled={!item.available || loading}
-                          className={`px-3 py-1 rounded text-sm font-semibold transition-colors flex items-center gap-1 ${
-                            item.available && !loading
-                              ? 'bg-brand-primary hover:bg-orange-600 text-white'
-                              : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                          }`}
+                          disabled={!item.available || cartLoading}
+                          className={`px-3 py-1 rounded text-sm font-semibold transition-colors flex items-center gap-1 ${item.available && !cartLoading
+                            ? 'bg-brand-primary hover:bg-orange-600 text-white'
+                            : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                            }`}
                         >
                           <MdAdd className="text-base" /> Add
                         </button>
@@ -442,15 +443,15 @@ export default function CustomerHomePage() {
       {!showCart && !showOrderHistory && (
         <div className="bg-brand-darker border-t border-brand-border px-4 py-3 flex gap-3 flex-shrink-0">
           <button
-            onClick={() => setShowOrderHistory(true)}
+            onClick={handleShowHistory}
             className="flex-1 py-2 px-3 bg-brand-dark hover:bg-black text-gray-300 border border-brand-border rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            disabled={loading}
+            disabled={loading || cartLoading}
           >
             <MdHistory className="text-lg" /> History
           </button>
           <button
             onClick={() => setShowCart(true)}
-            disabled={cartItems.length === 0 || loading}
+            disabled={cartItems.length === 0 || loading || cartLoading}
             className="flex-1 py-2 px-3 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 relative disabled:opacity-50"
           >
             <MdShoppingCart className="text-lg" />

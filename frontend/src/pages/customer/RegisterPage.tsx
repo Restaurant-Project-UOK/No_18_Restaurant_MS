@@ -49,7 +49,7 @@ export default function CustomerRegisterPage() {
 
     try {
       // Register with customer role (role is set inside register function)
-      await register(formData.name, formData.email, formData.password, formData.phone);
+      await register(formData.name, formData.email, formData.password, formData.phone, tableId ? parseInt(tableId, 10) : undefined);
 
       // Redirect to customer dashboard with tableId
       if (tableId) {

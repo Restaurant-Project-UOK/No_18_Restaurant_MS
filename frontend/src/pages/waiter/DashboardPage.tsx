@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useOrders } from '../../context/OrderContext';
 import { useTables } from '../../context/TableContext';
 import { useMenu } from '../../context/MenuContext';
+import { waiterService, WaiterOrder } from '../../services/waiterService';
 import { Order, OrderStatus, MenuItem } from '../../types';
-import { 
-  MdPerson, MdAdd, MdCheck, MdClose, MdChair, MdRestaurant, 
+import {
+  MdPerson, MdAdd, MdCheck, MdClose, MdChair, MdRestaurant,
   MdTableBar, MdPayment, MdCheckCircle, MdAccessTime, MdAttachMoney,
   MdNotifications, MdDeliveryDining
 } from 'react-icons/md';
@@ -14,66 +15,69 @@ import {
 export default function WaiterDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { 
-    orders, 
-    updateOrderStatusAPI, 
+  const {
+    orders,
+    updateOrderStatusAPI,
     createOrderAPI,
     loadingAPI,
-    errorAPI 
+    errorAPI
   } = useOrders();
   const { tables, occupyTable, releaseTable } = useTables();
   const { menuItems, categories } = useMenu();
-  
+
   // Tab management
   const [activeTab, setActiveTab] = useState<'pickup' | 'tables' | 'payment'>('pickup');
-  
+
   // Table management
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [orderMode, setOrderMode] = useState<'view' | 'new'>('view');
   const [newOrderItems, setNewOrderItems] = useState<Array<{ menuItem: MenuItem; quantity: number }>>([]);
-  const [activeCategory, setActiveCategory] = useState('appetizers');
-  
+  const [activeCategory, setActiveCategory] = useState<string>('');
+
   // Payment management
   const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'digital'>('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
-  
+
   // Data states
-  const [readyOrders, setReadyOrders] = useState<Order[]>([]);
-  const [servedOrders, setServedOrders] = useState<Order[]>([]);
+  const [readyOrders, setReadyOrders] = useState<WaiterOrder[]>([]);
+  const [servedOrders, setServedOrders] = useState<WaiterOrder[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [serveLoading, setServeLoading] = useState<string | null>(null);
 
   const selectedTableData = selectedTable ? tables.find((t) => t.id === selectedTable) : null;
   const tableOrder = selectedTableData?.currentOrderId ? orders.find((o) => o.id === selectedTableData.currentOrderId) : null;
-  const menuItemsByCategory = menuItems.filter((item) => item.category === activeCategory);
+  const menuItemsByCategory = menuItems.filter((item) =>
+    item.categories.some(cat => cat.name === (activeCategory || categories[0]?.name))
+  );
 
-  // Load ready orders helper (define before useEffect that uses it)
-  const loadReadyOrders = () => {
-    const ready = orders.filter(o => o.status === OrderStatus.READY);
-    const served = orders.filter(o => o.status === OrderStatus.SERVED);
-    setReadyOrders(ready);
-    setServedOrders(served);
-  };
+  // Load ready orders from waiter service
+  const loadReadyOrders = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('auth_access_token') || undefined;
+      const received = await waiterService.getReceivedOrders(token);
+      setReadyOrders(received.filter(o => o.status === OrderStatus.READY));
+      setServedOrders(received.filter(o => o.status === OrderStatus.SERVED));
+    } catch (err) {
+      console.error('[WaiterDashboard] Failed to load received orders:', err);
+    }
+  }, []);
 
-  // Load ready orders when orders change
+  // Load ready orders when component mounts
   useEffect(() => {
     loadReadyOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders]);
+  }, [loadReadyOrders]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadReadyOrders();
-    }, 30000);
+    const interval = setInterval(loadReadyOrders, 30000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadReadyOrders]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    loadReadyOrders();
+    await loadReadyOrders();
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -94,7 +98,7 @@ export default function WaiterDashboardPage() {
     }
   };
 
-  const handleRemoveItemFromOrder = (menuItemId: string) => {
+  const handleRemoveItemFromOrder = (menuItemId: number) => {
     setNewOrderItems(newOrderItems.filter((item) => item.menuItem.id !== menuItemId));
   };
 
@@ -112,7 +116,7 @@ export default function WaiterDashboardPage() {
         tableNumber: selectedTableData?.tableNumber,
       };
 
-      const newOrder = await createOrderAPI(orderData);
+      const newOrder = await createOrderAPI(orderData as never);
       occupyTable(selectedTable, newOrder.id);
       setNewOrderItems([]);
       setOrderMode('view');
@@ -127,12 +131,17 @@ export default function WaiterDashboardPage() {
   // ============================================
 
   const handleMarkAsServed = async (orderId: string) => {
+    setServeLoading(orderId);
     try {
-      await updateOrderStatusAPI(orderId, 'SERVED');
-      loadReadyOrders();
+      const token = localStorage.getItem('auth_access_token') || undefined;
+      // Use waiterService: PATCH /api/waiter/orders/{id}/served
+      await waiterService.markOrderServed(orderId, token);
+      await loadReadyOrders();
     } catch (error) {
       console.error('Failed to mark as served:', error);
       alert('Failed to update order status. Please try again.');
+    } finally {
+      setServeLoading(null);
     }
   };
 
@@ -162,7 +171,7 @@ export default function WaiterDashboardPage() {
     try {
       // Mark order as completed
       await updateOrderStatusAPI(paymentOrder.id, 'COMPLETED');
-      
+
       // Release table if it has one
       if (paymentOrder.tableNumber) {
         const table = tables.find(t => t.tableNumber === paymentOrder.tableNumber);
@@ -218,11 +227,10 @@ export default function WaiterDashboardPage() {
           <div className="flex gap-2 -mb-px">
             <button
               onClick={() => setActiveTab('pickup')}
-              className={`px-6 py-3 font-semibold transition-colors border-b-2 flex items-center gap-2 ${
-                activeTab === 'pickup'
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 font-semibold transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'pickup'
+                ? 'border-brand-primary text-brand-primary'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
             >
               <MdDeliveryDining />
               Ready to Pickup
@@ -234,22 +242,20 @@ export default function WaiterDashboardPage() {
             </button>
             <button
               onClick={() => setActiveTab('tables')}
-              className={`px-6 py-3 font-semibold transition-colors border-b-2 flex items-center gap-2 ${
-                activeTab === 'tables'
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 font-semibold transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'tables'
+                ? 'border-brand-primary text-brand-primary'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
             >
               <MdTableBar />
               Tables & Orders
             </button>
             <button
               onClick={() => setActiveTab('payment')}
-              className={`px-6 py-3 font-semibold transition-colors border-b-2 flex items-center gap-2 ${
-                activeTab === 'payment'
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 font-semibold transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'payment'
+                ? 'border-brand-primary text-brand-primary'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+                }`}
             >
               <MdPayment />
               Payment Collection
@@ -299,17 +305,17 @@ export default function WaiterDashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {readyOrders.map((order) => (
                   <div
-                    key={order.id}
+                    key={order.orderId}
                     className="bg-brand-darker border-2 border-green-600 rounded-lg p-5 hover:shadow-lg transition-shadow"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="text-lg font-bold text-white">
-                          Order #{order.id.slice(-6)}
+                          Order #{order.orderId.slice(-6)}
                         </h3>
-                        {order.tableNumber && (
+                        {order.tableId && (
                           <p className="text-brand-primary font-semibold flex items-center gap-1">
-                            <MdChair /> Table {order.tableNumber}
+                            <MdChair /> Table {order.tableId}
                           </p>
                         )}
                       </div>
@@ -327,7 +333,7 @@ export default function WaiterDashboardPage() {
                     <div className="space-y-1 mb-4 border-t border-brand-border pt-3">
                       {order.items.map((item) => (
                         <div key={item.id} className="flex justify-between text-sm text-gray-300">
-                          <span>{item.quantity}x {item.menuItem.name}</span>
+                          <span>{item.quantity}x {item.name}</span>
                         </div>
                       ))}
                     </div>
@@ -340,11 +346,11 @@ export default function WaiterDashboardPage() {
                     </div>
 
                     <button
-                      onClick={() => handleMarkAsServed(order.id)}
-                      disabled={loadingAPI}
+                      onClick={() => handleMarkAsServed(order.orderId)}
+                      disabled={serveLoading === order.orderId}
                       className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      <MdCheck /> Mark as Served
+                      <MdCheck /> {serveLoading === order.orderId ? 'Updating...' : 'Mark as Served'}
                     </button>
                   </div>
                 ))}
@@ -362,220 +368,222 @@ export default function WaiterDashboardPage() {
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Floor Plan */}
-          <div className="lg:col-span-1">
-            <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2"><MdChair /> Tables</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {tables.map((table) => (
-                <button
-                  key={table.id}
-                  onClick={() => {
-                    setSelectedTable(table.id);
-                    setOrderMode('view');
-                    setNewOrderItems([]);
-                  }}
-                  className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
-                    selectedTable === table.id
-                      ? 'border-brand-primary bg-orange-900/20'
-                      : table.status === 'available'
-                        ? 'border-green-700 bg-green-900/20 hover:border-green-600'
-                        : table.status === 'occupied'
-                          ? 'border-red-700 bg-red-900/20 hover:border-red-600'
-                          : 'border-yellow-700 bg-yellow-900/20 hover:border-yellow-600'
-                  }`}
-                >
-                  <p className="text-2xl font-bold text-white">{table.tableNumber}</p>
-                  <p className="text-xs text-gray-400">Cap: {table.capacity}</p>
-                  <p className={`text-xs font-semibold uppercase ${
-                    table.status === 'available' ? 'text-green-400' :
-                    table.status === 'occupied' ? 'text-red-400' : 'text-yellow-400'
-                  }`}>{table.status}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Table Details / Order Entry */}
-          <div className="lg:col-span-2">
-            {!selectedTable ? (
-              <div className="bg-brand-darker border border-brand-border rounded-lg p-8 text-center">
-                <p className="text-gray-400 text-lg">Select a table to view or create an order</p>
+              {/* Floor Plan */}
+              <div className="lg:col-span-1">
+                <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2"><MdChair /> Tables</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {tables.map((table) => (
+                    <button
+                      key={table.id}
+                      onClick={() => {
+                        setSelectedTable(table.id);
+                        setOrderMode('view');
+                        setNewOrderItems([]);
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${selectedTable === table.id
+                        ? 'border-brand-primary bg-orange-900/20'
+                        : table.status === 'available'
+                          ? 'border-green-700 bg-green-900/20 hover:border-green-600'
+                          : table.status === 'occupied'
+                            ? 'border-red-700 bg-red-900/20 hover:border-red-600'
+                            : 'border-yellow-700 bg-yellow-900/20 hover:border-yellow-600'
+                        }`}
+                    >
+                      <p className="text-2xl font-bold text-white">{table.tableNumber}</p>
+                      <p className="text-xs text-gray-400">Cap: {table.capacity}</p>
+                      <p className={`text-xs font-semibold uppercase ${table.status === 'available' ? 'text-green-400' :
+                        table.status === 'occupied' ? 'text-red-400' : 'text-yellow-400'
+                        }`}>{table.status}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : orderMode === 'view' ? (
-              <div className="bg-brand-darker border border-brand-border rounded-lg p-6">
-                <h3 className="text-2xl font-bold mb-4 text-white">
-                  🪑 Table {selectedTableData?.tableNumber} - <span className="text-gray-400">{selectedTableData?.status}</span>
-                </h3>
 
-                {tableOrder ? (
-                  <div className="space-y-4">
-                    <div className="bg-brand-dark border border-brand-border p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm text-gray-400">Current Order</p>
-                        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          tableOrder.status === OrderStatus.PENDING ? 'bg-yellow-900/30 text-yellow-400' :
-                          tableOrder.status === OrderStatus.CONFIRMED ? 'bg-blue-900/30 text-blue-400' :
-                          tableOrder.status === OrderStatus.PREPARING ? 'bg-orange-900/30 text-orange-400' :
-                          tableOrder.status === OrderStatus.READY ? 'bg-green-900/30 text-green-400' :
-                          tableOrder.status === OrderStatus.SERVED ? 'bg-purple-900/30 text-purple-400' :
-                          'bg-gray-900/30 text-gray-400'
-                        }`}>
-                          {tableOrder.status.toUpperCase()}
+              {/* Table Details / Order Entry */}
+              <div className="lg:col-span-2">
+                {!selectedTable ? (
+                  <div className="bg-brand-darker border border-brand-border rounded-lg p-8 text-center">
+                    <p className="text-gray-400 text-lg">Select a table to view or create an order</p>
+                  </div>
+                ) : orderMode === 'view' ? (
+                  <div className="bg-brand-darker border border-brand-border rounded-lg p-6">
+                    <h3 className="text-2xl font-bold mb-4 text-white">
+                      🪑 Table {selectedTableData?.tableNumber} - <span className="text-gray-400">{selectedTableData?.status}</span>
+                    </h3>
+
+                    {tableOrder ? (
+                      <div className="space-y-4">
+                        <div className="bg-brand-dark border border-brand-border p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm text-gray-400">Current Order</p>
+                            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${tableOrder.status === OrderStatus.PENDING ? 'bg-yellow-900/30 text-yellow-400' :
+                              tableOrder.status === OrderStatus.CONFIRMED ? 'bg-blue-900/30 text-blue-400' :
+                                tableOrder.status === OrderStatus.PREPARING ? 'bg-orange-900/30 text-orange-400' :
+                                  tableOrder.status === OrderStatus.READY ? 'bg-green-900/30 text-green-400' :
+                                    tableOrder.status === OrderStatus.SERVED ? 'bg-purple-900/30 text-purple-400' :
+                                      'bg-gray-900/30 text-gray-400'
+                              }`}>
+                              {tableOrder.status.toUpperCase()}
+                            </div>
+                          </div>
+
+                          <p className="text-lg font-bold mb-3 text-white">Order #{tableOrder.id.slice(-6)}</p>
+
+                          <div className="space-y-2 mb-4">
+                            {tableOrder.items.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between text-sm text-gray-300">
+                                <span>{item.quantity}x {item.menuItem.name}</span>
+                                <span className="text-brand-primary">${(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="border-t border-brand-border pt-3 flex justify-between font-bold text-white mb-4">
+                            <span>Total:</span>
+                            <span className="text-brand-primary text-xl">${tableOrder.totalPrice.toFixed(2)}</span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {tableOrder.status === OrderStatus.READY && (
+                              <button
+                                onClick={() => handleMarkAsServed(tableOrder.id)}
+                                disabled={loadingAPI}
+                                className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                <MdCheck /> Mark as Served
+                              </button>
+                            )}
+                            {tableOrder.status === OrderStatus.SERVED && (
+                              <button
+                                onClick={() => handleOpenPayment(tableOrder)}
+                                disabled={loadingAPI}
+                                className="w-full py-2 px-4 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                <MdAttachMoney /> Collect Payment
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setOrderMode('new')}
+                              disabled={loadingAPI}
+                              className="w-full py-2 px-4 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              <MdAdd /> Add More Items
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      
-                      <p className="text-lg font-bold mb-3 text-white">Order #{tableOrder.id.slice(-6)}</p>
-
-                      <div className="space-y-2 mb-4">
-                        {tableOrder.items.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between text-sm text-gray-300">
-                            <span>{item.quantity}x {item.menuItem.name}</span>
-                            <span className="text-brand-primary">${(item.menuItem.price * item.quantity).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="border-t border-brand-border pt-3 flex justify-between font-bold text-white mb-4">
-                        <span>Total:</span>
-                        <span className="text-brand-primary text-xl">${tableOrder.totalPrice.toFixed(2)}</span>
-                      </div>
-
-                      <div className="space-y-2">
-                        {tableOrder.status === OrderStatus.READY && (
-                          <button
-                            onClick={() => handleMarkAsServed(tableOrder.id)}
-                            disabled={loadingAPI}
-                            className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            <MdCheck /> Mark as Served
-                          </button>
-                        )}
-                        {tableOrder.status === OrderStatus.SERVED && (
-                          <button
-                            onClick={() => handleOpenPayment(tableOrder)}
-                            disabled={loadingAPI}
-                            className="w-full py-2 px-4 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            <MdAttachMoney /> Collect Payment
-                          </button>
-                        )}
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-400 mb-4">No active order at this table</p>
                         <button
                           onClick={() => setOrderMode('new')}
                           disabled={loadingAPI}
-                          className="w-full py-2 px-4 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                          className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
                         >
-                          <MdAdd /> Add More Items
+                          <MdAdd /> Create New Order
                         </button>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400 mb-4">No active order at this table</p>
-                    <button
-                      onClick={() => setOrderMode('new')}
-                      disabled={loadingAPI}
-                      className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
-                    >
-                      <MdAdd /> Create New Order
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-brand-darker border border-brand-border rounded-lg p-6">
-                <h3 className="text-2xl font-bold mb-4 text-white">
-                  <MdChair className="inline mr-2" /> New Order - Table {selectedTableData?.tableNumber}
-                </h3>
+                  <div className="bg-brand-darker border border-brand-border rounded-lg p-6">
+                    <h3 className="text-2xl font-bold mb-4 text-white">
+                      <MdChair className="inline mr-2" /> New Order - Table {selectedTableData?.tableNumber}
+                    </h3>
 
-                {/* Category Tabs */}
-                <div className="mb-6 flex gap-2 overflow-x-auto pb-2 border-b border-brand-border">
-                  {categories.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => setActiveCategory(category.id)}
-                      className={`px-4 py-2 rounded-lg whitespace-nowrap font-medium transition-colors ${
-                        activeCategory === category.id
-                          ? 'bg-brand-primary text-white'
-                          : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
-                      }`}
-                    >
-                      {category.icon} {category.name}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Menu Items */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  {menuItemsByCategory.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleAddItemToOrder(item)}
-                      className="p-3 bg-brand-dark border border-brand-border rounded-lg hover:bg-black hover:border-brand-primary transition-colors text-left"
-                    >
-                      <p className="text-2xl mb-1">{item.image}</p>
-                      <p className="font-semibold text-sm text-white">{item.name}</p>
-                      <p className="text-brand-primary font-bold text-sm">${item.price.toFixed(2)}</p>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Order Summary */}
-                {newOrderItems.length > 0 && (
-                  <div className="bg-brand-dark border border-brand-border p-4 rounded-lg mb-4">
-                    <h4 className="font-bold mb-3 text-white">Order Items:</h4>
-                    <div className="space-y-2 mb-4">
-                      {newOrderItems.map((item) => (
-                        <div key={item.menuItem.id} className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-white">{item.quantity}x {item.menuItem.name}</p>
-                            <p className="text-sm text-brand-primary">${(item.menuItem.price * item.quantity).toFixed(2)}</p>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveItemFromOrder(item.menuItem.id)}
-                            className="text-red-400 hover:text-red-300 font-bold transition-colors disabled:opacity-50"
-                            disabled={loadingAPI}
-                          >
-                            <MdClose />
-                          </button>
-                        </div>
+                    {/* Category Tabs */}
+                    <div className="mb-6 flex gap-2 overflow-x-auto pb-2 border-b border-brand-border">
+                      {categories.map((category) => (
+                        <button
+                          key={category.id}
+                          onClick={() => setActiveCategory(category.name)}
+                          className={`px-4 py-2 rounded-lg whitespace-nowrap font-medium transition-colors ${(activeCategory || categories[0]?.name) === category.name
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
+                            }`}
+                        >
+                          {category.name}
+                        </button>
                       ))}
                     </div>
 
-                    <div className="border-t border-brand-border pt-3 flex justify-between font-bold mb-4 text-white">
-                      <span>Total:</span>
-                      <span className="text-brand-primary">
-                        ${newOrderItems
-                          .reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0)
-                          .toFixed(2)}
-                      </span>
+                    {/* Menu Items */}
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                      {menuItemsByCategory.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleAddItemToOrder(item)}
+                          className="p-3 bg-brand-dark border border-brand-border rounded-lg hover:bg-black hover:border-brand-primary transition-colors text-left"
+                        >
+                          <div className="w-full h-24 bg-brand-dark flex items-center justify-center rounded-lg overflow-hidden mb-2">
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <MdRestaurant className="text-3xl text-gray-500" />
+                            )}
+                          </div>
+                          <p className="font-semibold text-sm text-white">{item.name}</p>
+                          <p className="text-brand-primary font-bold text-sm">${item.price.toFixed(2)}</p>
+                        </button>
+                      ))}
                     </div>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setOrderMode('view');
-                          setNewOrderItems([]);
-                        }}
-                        disabled={loadingAPI}
-                        className="flex-1 py-2 px-4 bg-brand-darker hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
-                      >
-                        <MdClose /> Cancel
-                      </button>
-                      <button
-                        onClick={handleSubmitOrder}
-                        disabled={loadingAPI}
-                        className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
-                      >
-                        <MdCheck /> Submit Order
-                      </button>
-                    </div>
+                    {/* Order Summary */}
+                    {newOrderItems.length > 0 && (
+                      <div className="bg-brand-dark border border-brand-border p-4 rounded-lg mb-4">
+                        <h4 className="font-bold mb-3 text-white">Order Items:</h4>
+                        <div className="space-y-2 mb-4">
+                          {newOrderItems.map((item) => (
+                            <div key={item.menuItem.id} className="flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold text-white">{item.quantity}x {item.menuItem.name}</p>
+                                <p className="text-sm text-brand-primary">${(item.menuItem.price * item.quantity).toFixed(2)}</p>
+                              </div>
+                              <button
+                                onClick={() => handleRemoveItemFromOrder(item.menuItem.id)}
+                                className="text-red-400 hover:text-red-300 font-bold transition-colors disabled:opacity-50"
+                                disabled={loadingAPI}
+                              >
+                                <MdClose />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="border-t border-brand-border pt-3 flex justify-between font-bold mb-4 text-white">
+                          <span>Total:</span>
+                          <span className="text-brand-primary">
+                            ${newOrderItems
+                              .reduce((sum, item) => sum + item.menuItem.price * item.quantity, 0)
+                              .toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setOrderMode('view');
+                              setNewOrderItems([]);
+                            }}
+                            disabled={loadingAPI}
+                            className="flex-1 py-2 px-4 bg-brand-darker hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                          >
+                            <MdClose /> Cancel
+                          </button>
+                          <button
+                            onClick={handleSubmitOrder}
+                            disabled={loadingAPI}
+                            className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                          >
+                            <MdCheck /> Submit Order
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
           </div>
         )}
 
@@ -635,31 +643,28 @@ export default function WaiterDashboardPage() {
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => setPaymentMethod('cash')}
-                          className={`py-3 px-4 rounded-lg font-semibold transition-colors ${
-                            paymentMethod === 'cash'
-                              ? 'bg-brand-primary text-white'
-                              : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
-                          }`}
+                          className={`py-3 px-4 rounded-lg font-semibold transition-colors ${paymentMethod === 'cash'
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
+                            }`}
                         >
                           💵 Cash
                         </button>
                         <button
                           onClick={() => setPaymentMethod('card')}
-                          className={`py-3 px-4 rounded-lg font-semibold transition-colors ${
-                            paymentMethod === 'card'
-                              ? 'bg-brand-primary text-white'
-                              : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
-                          }`}
+                          className={`py-3 px-4 rounded-lg font-semibold transition-colors ${paymentMethod === 'card'
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
+                            }`}
                         >
                           💳 Card
                         </button>
                         <button
                           onClick={() => setPaymentMethod('digital')}
-                          className={`py-3 px-4 rounded-lg font-semibold transition-colors ${
-                            paymentMethod === 'digital'
-                              ? 'bg-brand-primary text-white'
-                              : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
-                          }`}
+                          className={`py-3 px-4 rounded-lg font-semibold transition-colors ${paymentMethod === 'digital'
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-brand-dark border border-brand-border text-gray-400 hover:text-gray-300'
+                            }`}
                         >
                           📱 Digital
                         </button>
@@ -703,18 +708,18 @@ export default function WaiterDashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {servedOrders.map((order) => (
                     <button
-                      key={order.id}
-                      onClick={() => handleOpenPayment(order)}
+                      key={order.orderId}
+                      onClick={() => setPaymentOrder(order as never)}
                       className="bg-brand-darker border-2 border-purple-600 rounded-lg p-5 hover:shadow-lg transition-all text-left"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h3 className="text-lg font-bold text-white">
-                            Order #{order.id.slice(-6)}
+                            Order #{order.orderId.slice(-6)}
                           </h3>
-                          {order.tableNumber && (
+                          {order.tableId && (
                             <p className="text-brand-primary font-semibold flex items-center gap-1">
-                              <MdChair /> Table {order.tableNumber}
+                              <MdChair /> Table {order.tableId}
                             </p>
                           )}
                         </div>
@@ -726,7 +731,7 @@ export default function WaiterDashboardPage() {
                       <div className="space-y-1 mb-4 border-t border-brand-border pt-3">
                         {order.items.slice(0, 3).map((item) => (
                           <div key={item.id} className="text-sm text-gray-400">
-                            {item.quantity}x {item.menuItem.name}
+                            {item.quantity}x {item.name}
                           </div>
                         ))}
                         {order.items.length > 3 && (

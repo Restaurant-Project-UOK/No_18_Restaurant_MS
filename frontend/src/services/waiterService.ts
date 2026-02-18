@@ -56,7 +56,7 @@ const getReceivedOrders = async (accessToken?: string): Promise<WaiterOrder[]> =
     }
 
     const response = await apiRequest<Order[]>(
-      '/api/orders?status=READY',
+      '/api/waiter/received-orders',
       {
         jwt: token,
       }
@@ -113,11 +113,10 @@ const updateOrderStatus = async (
     }
 
     await apiRequest<Order>(
-      `/api/orders/${orderId}`,
+      `/api/waiter/orders/${orderId}/served`,
       {
         method: 'PATCH',
         jwt: token,
-        body: JSON.stringify({ status: statusData.status }),
       }
     );
 
@@ -240,7 +239,7 @@ export const waiterService = {
   getReceivedOrders,
   updateOrderStatus,
   getWaiterHealth,
-  
+
   // Helper methods
   getOrdersByTable,
   markOrderServed,

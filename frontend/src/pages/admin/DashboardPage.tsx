@@ -12,13 +12,17 @@ import { staffService } from '../../services/staffService';
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user, addStaff, getJwtToken } = useAuth();
-  const { orders, updateOrderStatus, refreshOrders } = useOrders();
-  const { menuItems, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData } = useMenu();
+  const { orders, updateOrderStatusAPI, refreshOrders } = useOrders();
+  const { menuItems, categories, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData } = useMenu();
   const { tables, refreshTables } = useTables();
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'staff' | 'menu' | 'tables' | 'analytics'>('overview');
 
   // Analytics state
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsDates, setAnalyticsDates] = useState({
+    start: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0],
+  });
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
   const [dailyForecast, setDailyForecast] = useState<DailyForecast[]>([]);
@@ -163,8 +167,8 @@ export default function AdminDashboardPage() {
       name: item.name,
       description: item.description,
       price: item.price,
-      category: item.category,
       available: item.available,
+      categories: item.categories,
     });
   };
 
@@ -265,7 +269,7 @@ export default function AdminDashboardPage() {
       const menuItemData = {
         name: newMenuForm.name.trim(),
         description: newMenuForm.description.trim(),
-        category: newMenuForm.category,
+        categoryIds: [parseInt(newMenuForm.category)], // Convert to ID
         price: price,
         available: newMenuForm.available,
         preparationTime: parseInt(newMenuForm.preparationTime) || 15,
@@ -292,7 +296,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleDeleteMenuItem = async (itemId: string, itemName: string) => {
+  const handleDeleteMenuItem = async (itemId: number, itemName: string) => {
     if (!confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
       return;
     }
@@ -329,13 +333,13 @@ export default function AdminDashboardPage() {
     if (activeTab === 'analytics') {
       loadAnalyticsData();
     }
-  }, [activeTab]);
+  }, [activeTab, analyticsDates]);
 
   const loadAnalyticsData = async () => {
     setAnalyticsLoading(true);
     try {
       const [summary, items, daily, hourly, health] = await Promise.all([
-        analyticsService.getSummary(),
+        analyticsService.getSummary(analyticsDates.start, analyticsDates.end),
         analyticsService.getTopItems(),
         analyticsService.getDailyForecast(),
         analyticsService.getHourlyForecast(),
@@ -458,17 +462,24 @@ export default function AdminDashboardPage() {
               {/* Popular Items */}
               <div className="card">
                 <h3 className="text-xl font-bold mb-4 text-white">Top Items</h3>
-                <div className="space-y-3">
-                  {menuItems.slice(0, 5).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between pb-3 border-b border-brand-border">
+                {menuItems.slice(0, 5).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between pb-3 border-b border-brand-border">
+                    <div className="flex items-center gap-3">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded" />
+                      ) : (
+                        <div className="w-10 h-10 bg-brand-dark flex items-center justify-center rounded">
+                          <MdRestaurant className="text-gray-500" />
+                        </div>
+                      )}
                       <div>
                         <p className="font-semibold text-white">{item.name}</p>
                         <p className="text-sm text-gray-500">${item.price.toFixed(2)}</p>
                       </div>
-                      <p className="font-bold text-brand-primary">{item.image}</p>
                     </div>
-                  ))}
-                </div>
+                    <p className="font-bold text-brand-primary">{item.categories[0]?.name}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -477,9 +488,31 @@ export default function AdminDashboardPage() {
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
           <div>
-            <h2 className="section-title flex items-center gap-2">
-              <MdShowChart /> Analytics & Insights
-            </h2>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h2 className="section-title mb-0 flex items-center gap-2">
+                <MdShowChart /> Analytics & Insights
+              </h2>
+              <div className="flex items-center gap-2 bg-brand-darker p-2 rounded-lg border border-brand-border">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 font-medium">From</label>
+                  <input
+                    type="date"
+                    value={analyticsDates.start}
+                    onChange={(e) => setAnalyticsDates({ ...analyticsDates, start: e.target.value })}
+                    className="bg-brand-dark border border-brand-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 font-medium">To</label>
+                  <input
+                    type="date"
+                    value={analyticsDates.end}
+                    onChange={(e) => setAnalyticsDates({ ...analyticsDates, end: e.target.value })}
+                    className="bg-brand-dark border border-brand-border rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+            </div>
 
             {analyticsLoading ? (
               <div className="flex items-center justify-center py-20">
@@ -669,7 +702,7 @@ export default function AdminDashboardPage() {
                       <td className="px-6 py-4">
                         <select
                           value={order.status}
-                          onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
+                          onChange={(e) => updateOrderStatusAPI(order.id, e.target.value)}
                           className="px-3 py-1 bg-brand-darker border border-brand-border rounded-lg text-sm text-white focus:outline-none focus:border-brand-primary"
                         >
                           {Object.values(OrderStatus).map((status) => (
@@ -811,8 +844,8 @@ export default function AdminDashboardPage() {
                       <p className="text-gray-300">
                         <span className="font-medium">Status:</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ml-1 ${(staff.status as string).toLowerCase() === 'active' ? 'bg-green-900/30 text-green-400' :
-                            (staff.status as string).toLowerCase() === 'inactive' ? 'bg-gray-900/30 text-gray-400' :
-                              'bg-yellow-900/30 text-yellow-400'
+                          (staff.status as string).toLowerCase() === 'inactive' ? 'bg-gray-900/30 text-gray-400' :
+                            'bg-yellow-900/30 text-yellow-400'
                           }`}>
                           {staff.status}
                         </span>
@@ -859,9 +892,16 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {menuItems.map((item) => (
                 <div key={item.id} className="card">
-                  <div className="text-5xl text-center mb-3">{item.image}</div>
+                  <div className="h-40 bg-brand-dark flex items-center justify-center mb-3 rounded-lg overflow-hidden">
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <MdRestaurant className="text-5xl text-gray-500" />
+                    )}
+                  </div>
                   <p className="text-lg font-bold text-white mb-1">{item.name}</p>
-                  <p className="text-sm text-gray-400 mb-3">{item.description}</p>
+                  <p className="text-sm text-gray-400 mb-1">{item.categories.map(c => c.name).join(', ')}</p>
+                  <p className="text-sm text-gray-500 mb-3 line-clamp-2">{item.description}</p>
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-2xl font-bold text-brand-primary">${item.price.toFixed(2)}</p>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${item.available ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
@@ -920,132 +960,304 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Staff Edit Modal */}
-      {editingStaff && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-brand-darker border border-brand-border rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-white">Edit Staff Member</h3>
-              <button onClick={handleCloseStaffEdit} className="p-2 text-gray-400 hover:text-white rounded-lg transition-colors">
-                <MdClose className="text-xl" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <p className="text-lg font-semibold text-white mb-1">{editingStaff.name}</p>
-                <p className="text-sm text-gray-400">{editingStaff.email}</p>
+      {
+        editingStaff && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-brand-darker border border-brand-border rounded-lg max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">Edit Staff Member</h3>
+                <button onClick={handleCloseStaffEdit} className="p-2 text-gray-400 hover:text-white rounded-lg transition-colors">
+                  <MdClose className="text-xl" />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Status *</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleUpdateStaffStatus(editingStaff.id, 'active')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'active'
-                      ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
-                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
-                      }`}
-                  >
-                    Active
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStaffStatus(editingStaff.id, 'inactive')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'inactive'
-                      ? 'bg-gray-900/50 border-2 border-gray-600 text-gray-300'
-                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-gray-600'
-                      }`}
-                  >
-                    Inactive
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStaffStatus(editingStaff.id, 'on-break')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'on-break'
-                      ? 'bg-yellow-900/50 border-2 border-yellow-600 text-yellow-300'
-                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-yellow-600'
-                      }`}
-                  >
-                    On Break
+              <div className="space-y-4">
+                <div>
+                  <p className="text-lg font-semibold text-white mb-1">{editingStaff.name}</p>
+                  <p className="text-sm text-gray-400">{editingStaff.email}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Status *</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleUpdateStaffStatus(editingStaff.id, 'active')}
+                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'active'
+                        ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
+                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
+                        }`}
+                    >
+                      Active
+                    </button>
+                    <button
+                      onClick={() => handleUpdateStaffStatus(editingStaff.id, 'inactive')}
+                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'inactive'
+                        ? 'bg-gray-900/50 border-2 border-gray-600 text-gray-300'
+                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-gray-600'
+                        }`}
+                    >
+                      Inactive
+                    </button>
+                    <button
+                      onClick={() => handleUpdateStaffStatus(editingStaff.id, 'on-break')}
+                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'on-break'
+                        ? 'bg-yellow-900/50 border-2 border-yellow-600 text-yellow-300'
+                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-yellow-600'
+                        }`}
+                    >
+                      On Break
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button onClick={handleCloseStaffEdit} className="btn-primary w-full">
+                    Done
                   </button>
                 </div>
-              </div>
-
-              <div className="pt-4">
-                <button onClick={handleCloseStaffEdit} className="btn-primary w-full">
-                  Done
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Menu Edit Modal */}
-      {editingMenuItem && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-brand-darker border border-brand-border rounded-lg max-w-2xl w-full p-6 my-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-white">Edit Menu Item</h3>
-              <button onClick={handleCloseMenuEdit} className="p-2 text-gray-400 hover:text-white rounded-lg transition-colors">
-                <MdClose className="text-xl" />
-              </button>
+      {
+        editingMenuItem && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-brand-darker border border-brand-border rounded-lg max-w-2xl w-full p-6 my-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">Edit Menu Item</h3>
+                <button onClick={handleCloseMenuEdit} className="p-2 text-gray-400 hover:text-white rounded-lg transition-colors">
+                  <MdClose className="text-xl" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Item Name *</label>
+                    <input
+                      type="text"
+                      value={menuEditForm.name || ''}
+                      onChange={(e) => handleMenuEditChange('name', e.target.value)}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Price *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={menuEditForm.price || ''}
+                      onChange={(e) => handleMenuEditChange('price', parseFloat(e.target.value))}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                  <textarea
+                    value={menuEditForm.description || ''}
+                    onChange={(e) => handleMenuEditChange('description', e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Category *</label>
+                    <select
+                      value={menuEditForm.categories?.[0]?.id || ''}
+                      onChange={(e) => {
+                        const catId = parseInt(e.target.value);
+                        const cat = categories.find(c => c.id === catId);
+                        if (cat) handleMenuEditChange('categories', [cat]);
+                      }}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary"
+                    >
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Availability *</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleMenuEditChange('available', true)}
+                        className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${menuEditForm.available
+                          ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
+                          : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
+                          }`}
+                      >
+                        Available
+                      </button>
+                      <button
+                        onClick={() => handleMenuEditChange('available', false)}
+                        className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${!menuEditForm.available
+                          ? 'bg-red-900/50 border-2 border-red-600 text-red-300'
+                          : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-red-600'
+                          }`}
+                      >
+                        Out of Stock
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button onClick={handleCloseMenuEdit} className="flex-1 py-3 px-6 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleSaveMenuItem} className="flex-1 py-3 px-6 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2">
+                    <MdSave /> Save Changes
+                  </button>
+                </div>
+              </div>
             </div>
+          </div>
+        )
+      }
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Add Menu Item Modal */}
+      {
+        showAddMenuModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-brand-darker border border-brand-border rounded-lg max-w-2xl w-full p-6 my-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">Add New Menu Item</h3>
+                <button onClick={handleCloseAddMenu} disabled={menuActionLoading} className="p-2 text-gray-400 hover:text-white rounded-lg transition-colors disabled:opacity-50">
+                  <MdClose className="text-xl" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddMenuItem} className="space-y-4">
+                {/* Success/Error Messages */}
+                {menuActionSuccess && (
+                  <div className="p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm flex items-center gap-2">
+                    <MdCheckCircle />
+                    {menuActionSuccess}
+                  </div>
+                )}
+                {menuActionError && (
+                  <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm flex items-center gap-2">
+                    <MdError />
+                    {menuActionError}
+                  </div>
+                )}
+
+                {/* Image Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Item Name *</label>
-                  <input
-                    type="text"
-                    value={menuEditForm.name || ''}
-                    onChange={(e) => handleMenuEditChange('name', e.target.value)}
-                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Image *</label>
+                  <div className="flex flex-col items-center gap-4">
+                    {imagePreview && (
+                      <div className="w-full max-w-xs">
+                        <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg border-2 border-brand-border" />
+                      </div>
+                    )}
+                    <label className="w-full cursor-pointer">
+                      <div className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-dark hover:bg-black border-2 border-dashed border-brand-border hover:border-brand-primary text-gray-300 rounded-lg transition-colors">
+                        <MdImage className="text-2xl" />
+                        <span className="font-medium">{selectedImage ? 'Change Image' : 'Select Image'}</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        disabled={menuActionLoading}
+                      />
+                    </label>
+                    {selectedImage && (
+                      <p className="text-xs text-gray-400 text-center">{selectedImage.name} ({(selectedImage.size / 1024).toFixed(1)} KB)</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Item Name *</label>
+                    <input
+                      type="text"
+                      value={newMenuForm.name}
+                      onChange={(e) => setNewMenuForm({ ...newMenuForm, name: e.target.value })}
+                      placeholder="e.g., Margherita Pizza"
+                      disabled={menuActionLoading}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary disabled:opacity-50"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Price ($) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newMenuForm.price}
+                      onChange={(e) => setNewMenuForm({ ...newMenuForm, price: e.target.value })}
+                      placeholder="0.00"
+                      disabled={menuActionLoading}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary disabled:opacity-50"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                  <textarea
+                    value={newMenuForm.description}
+                    onChange={(e) => setNewMenuForm({ ...newMenuForm, description: e.target.value })}
+                    placeholder="Describe the dish..."
+                    rows={3}
+                    disabled={menuActionLoading}
+                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary disabled:opacity-50"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Price *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={menuEditForm.price || ''}
-                    onChange={(e) => handleMenuEditChange('price', parseFloat(e.target.value))}
-                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Category *</label>
+                    <select
+                      value={newMenuForm.category}
+                      onChange={(e) => setNewMenuForm({ ...newMenuForm, category: e.target.value })}
+                      disabled={menuActionLoading}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary disabled:opacity-50"
+                    >
+                      <option value="">Select a category</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                <textarea
-                  value={menuEditForm.description || ''}
-                  onChange={(e) => handleMenuEditChange('description', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Category *</label>
-                  <select
-                    value={menuEditForm.category || ''}
-                    onChange={(e) => handleMenuEditChange('category', e.target.value)}
-                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary"
-                  >
-                    <option value="appetizers">Appetizers</option>
-                    <option value="mains">Main Courses</option>
-                    <option value="desserts">Desserts</option>
-                    <option value="beverages">Beverages</option>
-                    <option value="specials">Specials</option>
-                  </select>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Prep Time (min)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newMenuForm.preparationTime}
+                      onChange={(e) => setNewMenuForm({ ...newMenuForm, preparationTime: e.target.value })}
+                      disabled={menuActionLoading}
+                      className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary disabled:opacity-50"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Availability *</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Initial Availability</label>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleMenuEditChange('available', true)}
-                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${menuEditForm.available
+                      type="button"
+                      onClick={() => setNewMenuForm({ ...newMenuForm, available: true })}
+                      disabled={menuActionLoading}
+                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${newMenuForm.available
                         ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
                         : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
                         }`}
@@ -1053,8 +1265,10 @@ export default function AdminDashboardPage() {
                       Available
                     </button>
                     <button
-                      onClick={() => handleMenuEditChange('available', false)}
-                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${!menuEditForm.available
+                      type="button"
+                      onClick={() => setNewMenuForm({ ...newMenuForm, available: false })}
+                      disabled={menuActionLoading}
+                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${!newMenuForm.available
                         ? 'bg-red-900/50 border-2 border-red-600 text-red-300'
                         : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-red-600'
                         }`}
@@ -1063,205 +1277,38 @@ export default function AdminDashboardPage() {
                     </button>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex gap-4 pt-4">
-                <button onClick={handleCloseMenuEdit} className="flex-1 py-3 px-6 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors">
-                  Cancel
-                </button>
-                <button onClick={handleSaveMenuItem} className="flex-1 py-3 px-6 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2">
-                  <MdSave /> Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Menu Item Modal */}
-      {showAddMenuModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-brand-darker border border-brand-border rounded-lg max-w-2xl w-full p-6 my-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-white">Add New Menu Item</h3>
-              <button onClick={handleCloseAddMenu} disabled={menuActionLoading} className="p-2 text-gray-400 hover:text-white rounded-lg transition-colors disabled:opacity-50">
-                <MdClose className="text-xl" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddMenuItem} className="space-y-4">
-              {/* Success/Error Messages */}
-              {menuActionSuccess && (
-                <div className="p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm flex items-center gap-2">
-                  <MdCheckCircle />
-                  {menuActionSuccess}
-                </div>
-              )}
-              {menuActionError && (
-                <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm flex items-center gap-2">
-                  <MdError />
-                  {menuActionError}
-                </div>
-              )}
-
-              {/* Image Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Image *</label>
-                <div className="flex flex-col items-center gap-4">
-                  {imagePreview && (
-                    <div className="w-full max-w-xs">
-                      <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg border-2 border-brand-border" />
-                    </div>
-                  )}
-                  <label className="w-full cursor-pointer">
-                    <div className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-dark hover:bg-black border-2 border-dashed border-brand-border hover:border-brand-primary text-gray-300 rounded-lg transition-colors">
-                      <MdImage className="text-2xl" />
-                      <span className="font-medium">{selectedImage ? 'Change Image' : 'Select Image'}</span>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageSelect}
-                      className="hidden"
-                      disabled={menuActionLoading}
-                    />
-                  </label>
-                  {selectedImage && (
-                    <p className="text-xs text-gray-400 text-center">{selectedImage.name} ({(selectedImage.size / 1024).toFixed(1)} KB)</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Item Name *</label>
-                  <input
-                    type="text"
-                    value={newMenuForm.name}
-                    onChange={(e) => setNewMenuForm({ ...newMenuForm, name: e.target.value })}
-                    placeholder="e.g., Margherita Pizza"
-                    disabled={menuActionLoading}
-                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary disabled:opacity-50"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Price ($) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newMenuForm.price}
-                    onChange={(e) => setNewMenuForm({ ...newMenuForm, price: e.target.value })}
-                    placeholder="0.00"
-                    disabled={menuActionLoading}
-                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary disabled:opacity-50"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                <textarea
-                  value={newMenuForm.description}
-                  onChange={(e) => setNewMenuForm({ ...newMenuForm, description: e.target.value })}
-                  placeholder="Describe the dish..."
-                  rows={3}
-                  disabled={menuActionLoading}
-                  className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary disabled:opacity-50"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Category *</label>
-                  <select
-                    value={newMenuForm.category}
-                    onChange={(e) => setNewMenuForm({ ...newMenuForm, category: e.target.value })}
-                    disabled={menuActionLoading}
-                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary disabled:opacity-50"
-                  >
-                    <option value="appetizers">Appetizers</option>
-                    <option value="mains">Main Courses</option>
-                    <option value="desserts">Desserts</option>
-                    <option value="beverages">Beverages</option>
-                    <option value="specials">Specials</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Prep Time (min)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={newMenuForm.preparationTime}
-                    onChange={(e) => setNewMenuForm({ ...newMenuForm, preparationTime: e.target.value })}
-                    disabled={menuActionLoading}
-                    className="w-full px-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-primary disabled:opacity-50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Initial Availability</label>
-                <div className="flex gap-2">
+                <div className="flex gap-4 pt-4">
                   <button
                     type="button"
-                    onClick={() => setNewMenuForm({ ...newMenuForm, available: true })}
+                    onClick={handleCloseAddMenu}
                     disabled={menuActionLoading}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${newMenuForm.available
-                      ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
-                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
-                      }`}
+                    className="flex-1 py-3 px-6 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50"
                   >
-                    Available
+                    Cancel
                   </button>
                   <button
-                    type="button"
-                    onClick={() => setNewMenuForm({ ...newMenuForm, available: false })}
+                    type="submit"
                     disabled={menuActionLoading}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${!newMenuForm.available
-                      ? 'bg-red-900/50 border-2 border-red-600 text-red-300'
-                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-red-600'
-                      }`}
+                    className="flex-1 py-3 px-6 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    Out of Stock
+                    {menuActionLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <MdAdd /> Add Menu Item
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseAddMenu}
-                  disabled={menuActionLoading}
-                  className="flex-1 py-3 px-6 bg-brand-dark hover:bg-black border border-brand-border text-gray-300 rounded-lg font-semibold transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={menuActionLoading}
-                  className="flex-1 py-3 px-6 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {menuActionLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <MdAdd /> Add Menu Item
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
     </div>
   );
 }

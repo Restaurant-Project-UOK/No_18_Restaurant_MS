@@ -16,6 +16,8 @@ export const API_CONFIG = {
   ORDERS_ENDPOINT: '/api/orders',
   ADMIN_ENDPOINT: '/api/admin',
   ANALYTICS_ENDPOINT: '/api/admin/analytics',
+  WAITER_ENDPOINT: '/api/waiter',
+  KITCHEN_ENDPOINT: '/api/kitchen',
 };
 
 /**

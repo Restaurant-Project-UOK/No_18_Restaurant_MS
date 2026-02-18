@@ -6,7 +6,7 @@ import { apiRequest } from '../config/api';
 // ============================================
 
 export interface CartItemRequest {
-  menuItemId: string;
+  menuItemId: number;
   itemName: string;
   price: number;
   quantity: number;
@@ -19,7 +19,7 @@ export interface UpdateCartItemRequest {
 
 export interface CartItemResponse {
   id: string;
-  menuItemId: string;
+  menuItemId: number;
   itemName: string;
   price: number;
   quantity: number;
@@ -149,6 +149,36 @@ const updateCartItem = async (
 };
 
 /**
+ * DELETE /api/cart/items/:itemId
+ * Removes an item from the cart
+ * 
+ * @param itemId - Cart item ID
+ * @param accessToken - JWT access token
+ */
+const deleteCartItem = async (itemId: string, accessToken?: string): Promise<void> => {
+  try {
+    const token = accessToken || localStorage.getItem('auth_access_token');
+    if (!token) {
+      throw new Error('Unauthorized: No access token');
+    }
+
+    await apiRequest<void>(
+      `/api/cart/items/${itemId}`,
+      {
+        method: 'DELETE',
+        jwt: token,
+      }
+    );
+
+    console.log('[cartService] Deleted cart item:', itemId);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete cart item';
+    console.error('[cartService] Failed to delete cart item:', message);
+    throw new Error(message);
+  }
+};
+
+/**
  * POST /api/cart/checkout
  * Checks out the current cart and creates an order
  * 
@@ -218,6 +248,8 @@ export const cartService = {
   openCart,
   addCartItem,
   updateCartItem,
+  deleteCartItem,
   checkout,
-  getOrder,};
+  getOrder,
+};
 

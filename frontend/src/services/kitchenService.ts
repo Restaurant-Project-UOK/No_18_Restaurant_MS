@@ -53,7 +53,7 @@ const getKitchenOrders = async (accessToken?: string): Promise<KitchenOrder[]> =
 
     // Use ORDERS_ENDPOINT with query params
     const response = await apiRequest<Order[]>(
-      `${API_CONFIG.ORDERS_ENDPOINT}?status=PENDING,CONFIRMED,PREPARING`,
+      '/api/kitchen/orders',
       {
         jwt: token,
       }
@@ -138,11 +138,10 @@ const markOrderPreparing = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}`,
+      `/api/kitchen/orders/${orderId}/preparing`,
       {
-        method: 'PATCH',
+        method: 'POST',
         jwt: token,
-        body: JSON.stringify({ status: OrderStatus.PREPARING }),
       }
     );
 
@@ -171,11 +170,10 @@ const markOrderReady = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}`,
+      `/api/kitchen/orders/${orderId}/ready`,
       {
-        method: 'PATCH',
+        method: 'POST',
         jwt: token,
-        body: JSON.stringify({ status: OrderStatus.READY }),
       }
     );
 

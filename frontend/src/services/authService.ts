@@ -27,7 +27,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  // User entity removed - we decode user info from JWT manually
+  user: UserProfile;
 }
 
 export interface RefreshTokenRequest {
@@ -48,6 +48,7 @@ export interface UserProfile {
   phone?: string;
   address?: string;
   role: number;
+  createdAt?: string;
 }
 
 // ============================================

@@ -21,7 +21,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await login(email, password);
+      const response = await login(email, password, tableId ? parseInt(tableId, 10) : undefined);
 
       // The user object is now reconstructed from JWT in AuthContext.login
       // but we might need to wait for state to update or use the response from login if it returns the user.

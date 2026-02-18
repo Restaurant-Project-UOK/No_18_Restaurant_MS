@@ -21,6 +21,7 @@ interface OrderContextType {
   loadingAPI: boolean;
   errorAPI: string | null;
   refreshOrders: () => Promise<void>;
+  loadUserHistory: () => Promise<void>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -35,15 +36,33 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
+      // For staff/general context: load active orders
       const activeOrders = await orderService.getActiveOrders();
       setOrders(activeOrders);
     } catch (error) {
-      console.error('[OrderContext] Failed to load initial orders:', error);
+      console.error('[OrderContext] Failed to load active orders:', error);
       setErrorAPI(error instanceof Error ? error.message : 'Failed to load orders');
     } finally {
       setLoadingAPI(false);
     }
   }, []);
+
+  const loadUserHistory = useCallback(async () => {
+    setLoadingAPI(true);
+    setErrorAPI(null);
+    try {
+      const jwt = getJwtToken() || undefined;
+      if (jwt) {
+        const userOrders = await orderService.getUserOrders(jwt);
+        setOrders(userOrders);
+      }
+    } catch (error) {
+      console.error('[OrderContext] Failed to load user history:', error);
+      setErrorAPI(error instanceof Error ? error.message : 'Failed to load user history');
+    } finally {
+      setLoadingAPI(false);
+    }
+  }, [getJwtToken]);
 
   // Load orders on mount
   useEffect(() => {
@@ -196,6 +215,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       loadingAPI,
       errorAPI,
       refreshOrders,
+      loadUserHistory,
     }),
     [
       orders,

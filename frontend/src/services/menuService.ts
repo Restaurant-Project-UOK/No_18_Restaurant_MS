@@ -8,9 +8,8 @@ import { apiRequest, API_CONFIG } from '../config/api';
 export interface CreateMenuItemRequest {
   name: string;
   description: string;
-  category: string;
+  categoryIds: number[];
   price: number;
-  available: boolean;
   preparationTime: number;
   ingredients?: string[];
   allergens?: string[];
@@ -49,11 +48,8 @@ const getAllCategories = async (): Promise<MenuCategory[]> => {
 /**
  * GET /api/media/{id}
  * Returns media URL or binary data for a given ID
- * Note: Browser usually handles this via <img> src, 
- * but this is here for cases where manual fetch is needed.
  */
 const getMediaById = async (id: string): Promise<string> => {
-  // Return the full URL for the media
   const baseUrl = API_CONFIG.GATEWAY_BASE_URL.endsWith('/')
     ? API_CONFIG.GATEWAY_BASE_URL.slice(0, -1)
     : API_CONFIG.GATEWAY_BASE_URL;
@@ -68,9 +64,8 @@ const getMediaById = async (id: string): Promise<string> => {
  * POST /api/admin/menu/with-image
  * Creates a new menu item with image upload (Admin only)
  * 
- * @param formData - FormData containing menuItem (JSON) and image (File)
+ * @param formData - FormData containing menuItem (JSON string) and image (File)
  * @param jwtToken - JWT token for authentication
- * @returns Created MenuItem object
  */
 const createMenuItemWithImage = async (
   formData: FormData,
@@ -85,9 +80,6 @@ const createMenuItemWithImage = async (
       {
         method: 'POST',
         jwt: token,
-        // When sending FormData, we must NOT set Content-Type header manually
-        // apiRequest usually sets it to application/json, so we need to bypass or modify it.
-        // Let's check apiRequest implementation in api.ts.
         body: formData,
       }
     );
@@ -102,7 +94,7 @@ const createMenuItemWithImage = async (
  * Toggles menu item availability (Admin only)
  */
 const updateMenuItemAvailability = async (
-  id: string,
+  id: number,
   isActive: boolean,
   jwtToken?: string
 ): Promise<void> => {
@@ -127,7 +119,7 @@ const updateMenuItemAvailability = async (
  * DELETE /api/admin/menu/{id}
  * Deletes a menu item (Admin only)
  */
-const deleteMenuItem = async (id: string, jwtToken?: string): Promise<void> => {
+const deleteMenuItem = async (id: number, jwtToken?: string): Promise<void> => {
   try {
     const token = jwtToken || localStorage.getItem('auth_access_token');
     if (!token) throw new Error('Unauthorized: No access token');
@@ -145,6 +137,33 @@ const deleteMenuItem = async (id: string, jwtToken?: string): Promise<void> => {
   }
 };
 
+/**
+ * PUT /api/admin/menu/{id}
+ * Updates an existing menu item (Admin only)
+ */
+const updateMenuItem = async (
+  id: number,
+  updates: Partial<MenuItem>,
+  jwtToken?: string
+): Promise<MenuItem> => {
+  try {
+    const token = jwtToken || localStorage.getItem('auth_access_token');
+    if (!token) throw new Error('Unauthorized: No access token');
+
+    return await apiRequest<MenuItem>(
+      `${API_CONFIG.ADMIN_ENDPOINT}/menu/${id}`,
+      {
+        method: 'PUT',
+        jwt: token,
+        body: JSON.stringify(updates),
+      }
+    );
+  } catch (error) {
+    console.error('[menuService] Failed to update menu item:', error);
+    throw error;
+  }
+};
+
 // ============================================
 // EXPORTED SERVICE
 // ============================================
@@ -157,6 +176,7 @@ export const menuService = {
 
   // Admin endpoints (JWT required)
   createMenuItemWithImage,
+  updateMenuItem,
   updateMenuItemAvailability,
   deleteMenuItem,
 };

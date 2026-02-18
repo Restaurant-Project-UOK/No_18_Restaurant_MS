@@ -8,13 +8,13 @@ interface MenuContextType {
   categories: MenuCategory[];
   loading: boolean;
   error: string | null;
-  getItemsByCategory: (category: string) => MenuItem[];
+  getItemsByCategory: (categoryName: string) => MenuItem[];
   searchItems: (query: string) => MenuItem[];
-  updateMenuItem: (id: string, updates: Partial<MenuItem>) => void;
+  updateMenuItem: (id: number, updates: Partial<MenuItem>, jwtToken?: string) => Promise<void>;
   refreshMenuData: () => Promise<void>;
   createMenuItem: (formData: FormData, jwtToken: string) => Promise<MenuItem>;
-  deleteMenuItem: (id: string, jwtToken: string) => Promise<void>;
-  toggleAvailability: (id: string, isActive: boolean, jwtToken: string) => Promise<void>;
+  deleteMenuItem: (id: number, jwtToken: string) => Promise<void>;
+  toggleAvailability: (id: number, isActive: boolean, jwtToken: string) => Promise<void>;
 }
 
 const MenuContext = createContext<MenuContextType | undefined>(undefined);
@@ -33,13 +33,13 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshMenuData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const [items, cats] = await Promise.all([
         menuService.getAllMenuItems(),
         menuService.getAllCategories(),
       ]);
-      
+
       setMenuItems(items);
       setCategories(cats);
     } catch (err) {
@@ -51,8 +51,10 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const getItemsByCategory = (category: string) => {
-    return menuItems.filter((item) => item.category === category);
+  const getItemsByCategory = (categoryName: string) => {
+    return menuItems.filter((item) =>
+      item.categories.some(cat => cat.name === categoryName)
+    );
   };
 
   const searchItems = (query: string) => {
@@ -64,25 +66,34 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
-  const updateMenuItem = (id: string, updates: Partial<MenuItem>) => {
-    setMenuItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    );
-    
-    // Also update in service layer
-    menuService.updateMenuItem(id, updates);
+  const updateMenuItem = async (id: number, updates: Partial<MenuItem>, jwtToken?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await menuService.updateMenuItem(id, updates, jwtToken);
+
+      setMenuItems((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+      );
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update menu item';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const createMenuItem = async (formData: FormData, jwtToken: string): Promise<MenuItem> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const newItem = await menuService.createMenuItemWithImage(formData, jwtToken);
-      
+
       // Refresh menu data to include new item
       await refreshMenuData();
-      
+
       return newItem;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create menu item';
@@ -93,13 +104,13 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const deleteMenuItem = async (id: string, jwtToken: string): Promise<void> => {
+  const deleteMenuItem = async (id: number, jwtToken: string): Promise<void> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       await menuService.deleteMenuItem(id, jwtToken);
-      
+
       // Remove from local state
       setMenuItems((prev) => prev.filter((item) => item.id !== id));
     } catch (err) {
@@ -112,16 +123,16 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const toggleAvailability = async (
-    id: string,
+    id: number,
     isActive: boolean,
     jwtToken: string
   ): Promise<void> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       await menuService.updateMenuItemAvailability(id, isActive, jwtToken);
-      
+
       // Update local state
       setMenuItems((prev) =>
         prev.map((item) => (item.id === id ? { ...item, available: isActive } : item))

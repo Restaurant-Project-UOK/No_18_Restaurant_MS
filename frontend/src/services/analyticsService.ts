@@ -39,12 +39,23 @@ export interface HealthLog {
 export const analyticsService = {
   /**
    * GET /api/admin/analytics/summary
+   * @param startDate - Optional start date (ISO string or YYYY-MM-DD)
+   * @param endDate - Optional end date (ISO string or YYYY-MM-DD)
    */
-  getSummary: async (): Promise<AnalyticsSummary> => {
+  getSummary: async (startDate?: string, endDate?: string): Promise<AnalyticsSummary> => {
     try {
       const token = localStorage.getItem('auth_access_token');
+      let url = `${API_CONFIG.ANALYTICS_ENDPOINT}/summary`;
+
+      const params = new URLSearchParams();
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+
+      const query = params.toString();
+      if (query) url += `?${query}`;
+
       return await apiRequest<AnalyticsSummary>(
-        `${API_CONFIG.ANALYTICS_ENDPOINT}/summary`,
+        url,
         { jwt: token || undefined }
       );
     } catch (error) {

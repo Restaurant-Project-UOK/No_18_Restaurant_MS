@@ -3,12 +3,12 @@ import { createContext, useContext, useState, useCallback, useMemo, ReactNode, u
 import { AuthState, UserRole, User } from '../types';
 import { authService, LoginRequest, RegisterRequest } from '../services/authService';
 import { profileService, UpdateProfileRequest } from '../services/profileService';
-import { decodeToken } from '../utils/jwtUtils';
+import { staffService } from '../services/staffService';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, tableId?: number) => Promise<User>;
   logout: () => Promise<void>;
-  register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
+  register: (name: string, email: string, password: string, phone?: string, tableId?: number) => Promise<void>;
   updateProfile: (name: string, phone: string, address: string) => Promise<void>;
   addStaff: (name: string, email: string, password: string, role: UserRole, phone: string) => Promise<void>;
   getJwtToken: () => string | null;
@@ -60,26 +60,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuthState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      const loginData: LoginRequest = { email, password, tableId };
+      const loginData: LoginRequest = { email, password, tableId: tableId || 0 };
       const response = await authService.login(loginData);
 
-      // Reconstruct user object solely from the JWT access token
-      console.log('[AuthContext] Decoding user from JWT...');
-      const decoded = decodeToken(response.accessToken);
-
-      if (!decoded) {
-        throw new Error('Invalid token: Could not decode user information');
-      }
-
       const user: User = {
-        id: decoded.sub,
-        email: email,
-        name: email.split('@')[0], // Fallback name from email
-        role: decoded.role,
-        createdAt: new Date().toISOString(), // Fallback
+        id: response.user.id.toString(),
+        email: response.user.email,
+        name: response.user.fullName,
+        role: response.user.role,
+        phone: response.user.phone,
+        address: response.user.address,
+        createdAt: response.user.createdAt || new Date().toISOString(),
       };
 
-      console.log('[AuthContext] User identified from token:', user);
+      console.log('[AuthContext] User data from login response:', user);
 
       // Store tokens and user
       localStorage.setItem('auth_access_token', response.accessToken);
@@ -135,7 +129,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const register = useCallback(
-    async (name: string, email: string, password: string, phone?: string): Promise<void> => {
+    async (name: string, email: string, password: string, phone?: string, tableId?: number): Promise<void> => {
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
 
       try {
@@ -153,7 +147,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const message = await authService.register(registerData);
         console.log('[AuthContext] Registration successful:', message);
 
-        await login(email, password);
+        await login(email, password, tableId);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Registration failed';
         console.error('[AuthContext] Registration error:', errorMessage);
@@ -213,15 +207,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
 
       try {
-        const registerData: RegisterRequest = {
+        const registerData = {
           fullName: name,
           email,
           password,
           role,
-          provider: 1,
           phone,
         };
-        await authService.register(registerData, authState.token || undefined);
+        await staffService.createStaff(registerData, authState.token || undefined);
 
         setAuthState((prev) => ({ ...prev, loading: false, error: null }));
       } catch (error) {

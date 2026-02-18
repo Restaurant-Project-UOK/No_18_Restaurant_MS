@@ -46,4 +46,25 @@ export const staffService = {
             throw error;
         }
     },
+
+    /**
+     * POST /api/admin/staff
+     * Creates a new staff member (Admin only)
+     */
+    createStaff: async (staffData: any, accessToken?: string): Promise<string> => {
+        try {
+            const token = accessToken || localStorage.getItem('auth_access_token');
+            return await apiRequest<string>(
+                `${API_CONFIG.ADMIN_ENDPOINT}/staff`,
+                {
+                    method: 'POST',
+                    jwt: token || undefined,
+                    body: JSON.stringify(staffData),
+                }
+            );
+        } catch (error) {
+            console.error('[staffService] Failed to create staff:', error);
+            throw error;
+        }
+    },
 };

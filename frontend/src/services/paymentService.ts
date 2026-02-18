@@ -5,9 +5,11 @@ import { apiRequest } from '../config/api';
 // ============================================
 
 export interface CreatePaymentRequest {
-  orderId: string;
-  amount: number;
-  currency?: string;
+  total: number;
+  currency: string;
+  method: string;
+  intent: string;
+  description: string;
 }
 
 export interface CreatePaymentResponse {
@@ -41,43 +43,26 @@ export interface PaymentDetails {
 // ============================================
 
 /**
- * POST /api/payments
- * Creates a new payment session for an order
+ * POST /payments/create
+ * Creates a new payment session (Public)
  * 
- * @param orderId - Order ID to create payment for
- * @param amount - Payment amount (validated by order)
- * @param accessToken - JWT access token
- * @returns Payment ID and approval link for PayPal redirect
+ * @param paymentData - Payment creation data
+ * @returns Redirect Link or Payment ID
  */
-const createPayment = async (
-  orderId: string,
-  amount?: number,
-  accessToken?: string
+export const createPayment = async (
+  paymentData: CreatePaymentRequest
 ): Promise<CreatePaymentResponse> => {
   try {
-    const token = accessToken || localStorage.getItem('auth_access_token');
-    if (!token) {
-      throw new Error('Unauthorized: No access token');
-    }
-
-    // Validate order ID
-    if (!orderId || orderId.trim() === '') {
-      throw new Error('Order ID is required');
-    }
-
+    // Note: Endpoint specified as /payments/create without /api prefix
     const response = await apiRequest<CreatePaymentResponse>(
-      '/api/payments',
+      '/payments/create',
       {
         method: 'POST',
-        jwt: token,
-        body: JSON.stringify({
-          orderId,
-          amount,
-        }),
+        body: JSON.stringify(paymentData),
       }
     );
 
-    console.log('[paymentService] Payment created:', response.paymentId, 'for order:', orderId);
+    console.log('[paymentService] Payment session created:', response.paymentId);
     return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create payment';
@@ -195,7 +180,7 @@ export const paymentService = {
   createPayment,
   getPaymentDetails,
   updatePaymentStatus,
-  
+
   // Shortcut methods
   approvePayment,
   cancelPayment,

@@ -33,23 +33,22 @@ export interface AuthState {
 // ============================================
 
 export interface MenuItem {
-  id: string;
+  id: number;
   name: string;
   description: string;
-  category: string;
   price: number;
-  image: string;
+  imageUrl?: string;
   available: boolean;
-  preparationTime: number; // in minutes
+  preparationTime: number;
+  categories: MenuCategory[];
   ingredients?: string[];
   allergens?: string[];
 }
 
 export interface MenuCategory {
-  id: string;
+  id: number;
   name: string;
   description?: string;
-  icon?: string;
 }
 
 // ============================================
@@ -58,7 +57,7 @@ export interface MenuCategory {
 
 export interface OrderItem {
   id: string;
-  menuItemId: string;
+  menuItemId: number;
   menuItem: MenuItem;
   quantity: number;
   specialRequests?: string;
