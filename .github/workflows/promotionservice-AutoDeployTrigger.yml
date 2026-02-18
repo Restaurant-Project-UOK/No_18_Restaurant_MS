@@ -11,35 +11,44 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        shell: bash  # ensure bash is used, avoids line continuation issues
+        shell: bash
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      # Step 2: Set up JDK 21
       - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 21
 
+      # Step 3: Build Spring Boot JAR using Maven Wrapper
       - name: Build Spring Boot jar
         working-directory: services/promotion-service
         run: ./mvnw clean package -DskipTests
 
+      # Step 4: Azure Login
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Step 5: Login to Azure Container Registry
       - name: Login to ACR (Docker)
         run: az acr login --name res18
 
+      # Step 6: Build Docker image for promotion-service
       - name: Build Docker image
-        run: docker build -t res18.azurecr.io/promotion-service:${{ github.sha }} -f services/promotion-service/Dockerfile .
+        working-directory: services/promotion-service
+        run: docker build -t res18.azurecr.io/promotion-service:${{ github.sha }} -f Dockerfile .
 
+      # Step 7: Push Docker image to ACR
       - name: Push Docker image to ACR
         run: docker push res18.azurecr.io/promotion-service:${{ github.sha }}
 
+      # Step 8: Deploy Container App
       - name: Deploy Container App
         run: az containerapp update --name promotion-service --resource-group ransini-02 --image res18.azurecr.io/promotion-service:${{ github.sha }}
