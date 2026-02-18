@@ -8,10 +8,13 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.Date;
 
 /**
@@ -42,13 +45,19 @@ public class JwtService {
         this.userRepository = userRepository;
         this.tokenBlacklistService = tokenBlacklistService;
     }
-    
+
     public long getAccessTokenExpirationMs() {
         return accessTokenExpirationMs;
     }
-    
+
     public long getRefreshTokenExpirationMs() {
         return refreshTokenExpirationMs;
+    }
+
+
+    private Key getSigningKey() {
+        byte[] keyBytes = this.jwtSecret.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String generateAccessToken(User user, int tableId) {
@@ -58,7 +67,7 @@ public class JwtService {
                 .claim("tableId", tableId)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpirationMs))
-                .signWith(SignatureAlgorithm.HS256, jwtSecret)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
@@ -68,7 +77,7 @@ public class JwtService {
                 .claim("tableId", tableId)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + refreshTokenExpirationMs))
-                .signWith(SignatureAlgorithm.HS256, jwtSecret)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
@@ -78,102 +87,56 @@ public class JwtService {
                 log.debug("Token is blacklisted");
                 return false;
             }
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token);
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            log.error("Token validation failed: {}", e.getMessage());
             return false;
         }
     }
 
     public boolean validateRefreshToken(String token) {
         try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(jwtSecret)
-                    .parseClaimsJws(token)
-                    .getBody();
+            Claims claims = getClaimsFromToken(token);
             return claims.getExpiration().after(new Date());
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (Exception e) {
             return false;
         }
     }
 
-    public String generateNewAccessToken(String refreshToken) {
-        log.debug("Generating new access token from refresh token");
-
-        if (!validateRefreshToken(refreshToken)) {
-            log.warn("Invalid or expired refresh token");
-            throw new IllegalArgumentException("Invalid or expired refresh token");
-        }
-
-        try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(jwtSecret)
-                    .parseClaimsJws(refreshToken)
-                    .getBody();
-
-            Long userId = Long.valueOf(claims.getSubject());
-            Integer tableId = (Integer) claims.get("tableId");
-
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-            log.info("Successfully generated new access token for user ID: {}", userId);
-            return generateAccessToken(user, tableId);
-
-        } catch (JwtException e) {
-            log.error("Error parsing refresh token: {}", e.getMessage());
-            throw new IllegalArgumentException("Invalid refresh token format", e);
-        }
-    }
-
     public TokenRefreshResponseDto refreshAccessToken(String refreshToken) {
-        log.debug("Refreshing access token");
-
         if (!validateRefreshToken(refreshToken)) {
-            log.warn("Invalid or expired refresh token");
             throw new IllegalArgumentException("Invalid or expired refresh token");
         }
 
-        try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(jwtSecret)
-                    .parseClaimsJws(refreshToken)
-                    .getBody();
+        Claims claims = getClaimsFromToken(refreshToken);
+        Long userId = Long.valueOf(claims.getSubject());
+        Integer tableId = (Integer) claims.get("tableId");
 
-            Long userId = Long.valueOf(claims.getSubject());
-            Integer tableId = (Integer) claims.get("tableId");
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        String newAccessToken = generateAccessToken(user, tableId);
 
-            String newAccessToken = generateAccessToken(user, tableId);
-
-            log.info("Successfully refreshed access token for user ID: {}", userId);
-            
-            return TokenRefreshResponseDto.builder()
-                    .accessToken(newAccessToken)
-                    .expiresIn(accessTokenExpirationMs)
-                    .build();
-
-        } catch (JwtException e) {
-            log.error("Error parsing refresh token: {}", e.getMessage());
-            throw new IllegalArgumentException("Invalid refresh token format", e);
-        }
+        return TokenRefreshResponseDto.builder()
+                .accessToken(newAccessToken)
+                .expiresIn(accessTokenExpirationMs)
+                .build();
     }
 
     private Claims getClaimsFromToken(String token) {
-        return Jwts.parser()
-                .setSigningKey(jwtSecret)
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
     public Long getUserIdFromToken(String token) {
         return Long.valueOf(getClaimsFromToken(token).getSubject());
-    }
-
-    public String getEmailFromToken(String token) {
-        return (String) getClaimsFromToken(token).get("email");
     }
 
     public Integer getRoleFromToken(String token) {
@@ -187,11 +150,9 @@ public class JwtService {
     public long getTokenRemainingValidityMs(String token) {
         try {
             Claims claims = getClaimsFromToken(token);
-            Date expiration = claims.getExpiration();
-            long remaining = expiration.getTime() - System.currentTimeMillis();
+            long remaining = claims.getExpiration().getTime() - System.currentTimeMillis();
             return Math.max(0, remaining);
-        } catch (JwtException | IllegalArgumentException e) {
-            log.debug("Could not get token expiration: {}", e.getMessage());
+        } catch (Exception e) {
             return 0;
         }
     }
