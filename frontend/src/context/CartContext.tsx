@@ -229,13 +229,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       const paymentResponse = await paymentService.createPayment({
-        total: amount,
-        currency: 'USD',
-        method: 'paypal',
-        intent: 'sale',
-        description: `Order #${orderId}`,
+        orderId: Number(orderId),
+        amount: amount,
       });
-      console.log('[CartContext] Payment created:', paymentResponse.paymentId);
+      console.log('[CartContext] Payment created, approval URL:', paymentResponse.approvalUrl);
       return paymentResponse;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create payment';

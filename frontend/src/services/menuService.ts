@@ -10,9 +10,7 @@ export interface CreateMenuItemRequest {
   description: string;
   categoryIds: number[];
   price: number;
-  preparationTime: number;
-  ingredients?: string[];
-  allergens?: string[];
+  isActive?: boolean;
 }
 
 // ============================================
@@ -61,7 +59,7 @@ const getMediaById = async (id: string): Promise<string> => {
 // ============================================
 
 /**
- * POST /api/admin/menu/with-image
+ * POST /api/admin/menu
  * Creates a new menu item with image upload (Admin only)
  * 
  * @param formData - FormData containing menuItem (JSON string) and image (File)
@@ -76,7 +74,7 @@ const createMenuItemWithImage = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     return await apiRequest<MenuItem>(
-      `${API_CONFIG.ADMIN_ENDPOINT}/menu/with-image`,
+      `${API_CONFIG.ADMIN_ENDPOINT}/menu`,
       {
         method: 'POST',
         jwt: token,

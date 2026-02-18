@@ -5,23 +5,23 @@ import { apiRequest } from '../config/api';
 // TYPES & INTERFACES
 // ============================================
 
+/**
+ * WaiterOrder — matches backend OrderReadyEvent from waiter-service Kafka consumer.
+ * GET /api/waiter/received-orders returns OrderReadyEvent[]:
+ *   { orderId, tableId, items: [{itemName, quantity}], readyTime }
+ */
 export interface WaiterOrder {
-  orderId: string;
-  tableId?: number;
-  status: OrderStatus;
-  customerName: string;
+  orderId: number;
+  tableId: number;
   items: {
-    id: string;
-    name: string;
+    itemName: string;
     quantity: number;
   }[];
-  totalPrice: number;
-  orderTime: string;
-  timeReady?: string;
+  readyTime: string;
 }
 
 export interface UpdateStatusRequest {
-  status: string;
+  status: OrderStatus;
 }
 
 export interface StatusUpdateResponse {
@@ -42,11 +42,13 @@ export interface HealthCheckResponse {
 // ============================================
 
 /**
- * GET /api/orders?status=READY
- * Returns all orders that are ready to be served
- * 
+ * GET /api/waiter/received-orders
+ * Returns all orders that are READY to be served.
+ * This endpoint is backed by the Kafka consumer in waiter-service —
+ * it returns OrderReadyEvent objects (not full Order objects).
+ *
  * @param accessToken - JWT access token (Waiter or Admin role)
- * @returns Array of ready orders
+ * @returns Array of ready orders (OrderReadyEvent shape)
  */
 const getReceivedOrders = async (accessToken?: string): Promise<WaiterOrder[]> => {
   try {
@@ -55,36 +57,20 @@ const getReceivedOrders = async (accessToken?: string): Promise<WaiterOrder[]> =
       throw new Error('Unauthorized: No access token');
     }
 
-    const response = await apiRequest<Order[]>(
+    const response = await apiRequest<WaiterOrder[]>(
       '/api/waiter/received-orders',
       {
         jwt: token,
       }
     );
 
-    // Transform to waiter order format
-    const transformedOrders: WaiterOrder[] = response.map((order) => ({
-      orderId: order.id,
-      tableId: order.tableNumber,
-      status: order.status,
-      customerName: order.customerName,
-      items: order.items.map((item) => ({
-        id: item.id,
-        name: item.menuItem.name,
-        quantity: item.quantity,
-      })),
-      totalPrice: order.totalPrice,
-      orderTime: order.orderTime,
-      timeReady: new Date().toISOString(),
-    }));
-
-    // Sort by order time (oldest first - FIFO)
-    transformedOrders.sort(
-      (a, b) => new Date(a.orderTime).getTime() - new Date(b.orderTime).getTime()
+    // Sort by readyTime (oldest first — FIFO)
+    response.sort(
+      (a, b) => new Date(a.readyTime).getTime() - new Date(b.readyTime).getTime()
     );
 
-    console.log('[waiterService] Retrieved', transformedOrders.length, 'ready orders');
-    return transformedOrders;
+    console.log('[waiterService] Retrieved', response.length, 'ready orders');
+    return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch received orders';
     console.error('[waiterService] Failed to fetch received orders:', message);
@@ -93,11 +79,11 @@ const getReceivedOrders = async (accessToken?: string): Promise<WaiterOrder[]> =
 };
 
 /**
- * PATCH /api/orders/:id
- * Updates order status
- * 
+ * PATCH /api/orders/:id/status
+ * Updates order status via the order-service.
+ *
  * @param orderId - Order ID
- * @param statusData - New status
+ * @param statusData - New status (use OrderStatus enum)
  * @param accessToken - JWT access token
  * @returns Status update confirmation
  */
@@ -113,10 +99,11 @@ const updateOrderStatus = async (
     }
 
     await apiRequest<Order>(
-      `/api/waiter/orders/${orderId}/served`,
+      `/api/orders/${orderId}/status`,
       {
         method: 'PATCH',
         jwt: token,
+        body: JSON.stringify({ status: statusData.status }),
       }
     );
 
@@ -124,7 +111,7 @@ const updateOrderStatus = async (
 
     return {
       orderId,
-      status: statusData.status as OrderStatus,
+      status: statusData.status,
       message: `Order status updated to ${statusData.status}`,
       timestamp: new Date().toISOString(),
     };
@@ -136,17 +123,17 @@ const updateOrderStatus = async (
 };
 
 /**
- * GET /api/orders/table/:tableNumber
- * Gets all orders for a specific table
- * 
- * @param tableNumber - Table number
+ * GET /api/orders/table
+ * Gets all orders for a specific table (via X-Table-Id header).
+ *
+ * @param tableId - Table ID
  * @param accessToken - JWT access token
  * @returns Array of table orders
  */
 const getOrdersByTable = async (
-  tableNumber: number,
+  tableId: number,
   accessToken?: string
-): Promise<WaiterOrder[]> => {
+): Promise<Order[]> => {
   try {
     const token = accessToken || localStorage.getItem('auth_access_token');
     if (!token) {
@@ -154,30 +141,17 @@ const getOrdersByTable = async (
     }
 
     const response = await apiRequest<Order[]>(
-      `/api/orders/table/${tableNumber}`,
+      '/api/orders/table',
       {
         jwt: token,
+        headers: {
+          'X-Table-Id': String(tableId),
+        },
       }
     );
 
-    // Transform to waiter order format
-    const transformedOrders: WaiterOrder[] = response.map((order) => ({
-      orderId: order.id,
-      tableId: order.tableNumber,
-      status: order.status,
-      customerName: order.customerName,
-      items: order.items.map((item) => ({
-        id: item.id,
-        name: item.menuItem.name,
-        quantity: item.quantity,
-      })),
-      totalPrice: order.totalPrice,
-      orderTime: order.orderTime,
-      timeReady: order.status === OrderStatus.READY ? new Date().toISOString() : undefined,
-    }));
-
-    console.log('[waiterService] Retrieved', transformedOrders.length, 'orders for table', tableNumber);
-    return transformedOrders;
+    console.log('[waiterService] Retrieved', response.length, 'orders for table', tableId);
+    return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch table orders';
     console.error('[waiterService] Failed to fetch table orders:', message);
@@ -186,23 +160,16 @@ const getOrdersByTable = async (
 };
 
 /**
- * GET /api/admin/analytics/waiter-health
- * Health check endpoint (No JWT required)
- * 
- * @returns Health status
+ * Health check — falls back gracefully if endpoint doesn't exist
  */
 const getWaiterHealth = async (): Promise<HealthCheckResponse> => {
   try {
     const response = await apiRequest<HealthCheckResponse>(
-      '/api/admin/analytics/waiter-health'
+      '/api/waiter/health'
     );
-
     console.log('[waiterService] Health check:', response.status);
     return response;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[waiterService] Health check failed:', message);
-    // Return degraded status instead of throwing
+  } catch {
     return {
       status: 'DOWN',
       timestamp: new Date().toISOString(),
@@ -211,23 +178,13 @@ const getWaiterHealth = async (): Promise<HealthCheckResponse> => {
 };
 
 /**
- * Marks an order as served (shortcut method)
+ * Marks an order as SERVED (shortcut method)
  */
 const markOrderServed = async (
   orderId: string,
   accessToken?: string
 ): Promise<StatusUpdateResponse> => {
-  return updateOrderStatus(orderId, { status: 'SERVED' }, accessToken);
-};
-
-/**
- * Marks an order as completed (shortcut method)
- */
-const markOrderCompleted = async (
-  orderId: string,
-  accessToken?: string
-): Promise<StatusUpdateResponse> => {
-  return updateOrderStatus(orderId, { status: 'COMPLETED' }, accessToken);
+  return updateOrderStatus(orderId, { status: OrderStatus.SERVED }, accessToken);
 };
 
 // ============================================
@@ -243,5 +200,4 @@ export const waiterService = {
   // Helper methods
   getOrdersByTable,
   markOrderServed,
-  markOrderCompleted,
 };

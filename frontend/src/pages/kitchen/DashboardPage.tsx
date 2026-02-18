@@ -121,12 +121,12 @@ export default function KitchenDashboardPage() {
                     key={order.orderId}
                     onClick={() => setSelectedOrderId(order.orderId)}
                     className={`cursor-pointer p-4 rounded-lg transition-all w-full text-left border ${selectedOrderId === order.orderId
-                        ? 'bg-red-700/50 border-red-500 ring-2 ring-red-400'
-                        : 'bg-brand-darker border-red-700 hover:border-red-500'
+                      ? 'bg-red-700/50 border-red-500 ring-2 ring-red-400'
+                      : 'bg-brand-darker border-red-700 hover:border-red-500'
                       }`}
                   >
                     <p className="text-lg font-bold text-red-300">Order #{order.orderId.slice(-6)}</p>
-                    <p className="text-sm text-gray-400 mb-2">{order.customerName}</p>
+                    <p className="text-sm text-gray-400 mb-2">Table #{order.tableId ?? 'N/A'}</p>
                     <ul className="text-sm text-gray-300 mb-3 space-y-1">
                       {order.items.map((item) => (
                         <li key={item.id}>
@@ -167,12 +167,12 @@ export default function KitchenDashboardPage() {
                     key={order.orderId}
                     onClick={() => setSelectedOrderId(order.orderId)}
                     className={`cursor-pointer p-4 rounded-lg transition-all w-full text-left border ${selectedOrderId === order.orderId
-                        ? 'bg-yellow-700/50 border-yellow-500 ring-2 ring-yellow-400'
-                        : 'bg-brand-darker border-yellow-700 hover:border-yellow-500'
+                      ? 'bg-yellow-700/50 border-yellow-500 ring-2 ring-yellow-400'
+                      : 'bg-brand-darker border-yellow-700 hover:border-yellow-500'
                       }`}
                   >
                     <p className="text-lg font-bold text-yellow-300">Order #{order.orderId.slice(-6)}</p>
-                    <p className="text-sm text-gray-400 mb-2">{order.customerName}</p>
+                    <p className="text-sm text-gray-400 mb-2">Table #{order.tableId ?? 'N/A'}</p>
                     <ul className="text-sm text-gray-300 mb-3 space-y-1">
                       {order.items.map((item) => (
                         <li key={item.id}>
@@ -214,7 +214,7 @@ export default function KitchenDashboardPage() {
                     className="p-4 rounded-lg bg-brand-darker border border-green-700"
                   >
                     <p className="text-lg font-bold text-green-300">Order #{order.orderId.slice(-6)}</p>
-                    <p className="text-sm text-gray-400 mb-2">{order.customerName}</p>
+                    <p className="text-sm text-gray-400 mb-2">Table #{order.tableId ?? 'N/A'}</p>
                     <ul className="text-sm text-gray-300 mb-3 space-y-1">
                       {order.items.map((item) => (
                         <li key={item.id}>
@@ -252,27 +252,27 @@ export default function KitchenDashboardPage() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Customer</p>
-                  <p className="text-lg font-semibold text-white">{selectedOrderData.customerName}</p>
+                  <p className="text-lg font-semibold text-white">Table #{selectedOrderData.tableId ?? 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Time Ordered</p>
-                  <p className="text-lg font-semibold text-white">{new Date(selectedOrderData.orderTime).toLocaleTimeString()}</p>
+                  <p className="text-lg font-semibold text-white">{new Date(selectedOrderData.createdAt).toLocaleTimeString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Status</p>
                   <p className="text-lg font-semibold capitalize text-brand-primary">{selectedOrderData.status}</p>
                 </div>
-                {selectedOrderData.tableNumber && (
+                {selectedOrderData.tableId && (
                   <div>
                     <p className="text-sm text-gray-400">Table</p>
-                    <p className="text-lg font-semibold text-white">#{selectedOrderData.tableNumber}</p>
+                    <p className="text-lg font-semibold text-white">#{selectedOrderData.tableId}</p>
                   </div>
                 )}
                 {selectedOrderData.priority && (
                   <div>
                     <p className="text-sm text-gray-400">Priority</p>
                     <p className={`text-lg font-semibold capitalize ${selectedOrderData.priority === 'high' ? 'text-red-400' :
-                        selectedOrderData.priority === 'normal' ? 'text-yellow-400' : 'text-green-400'
+                      selectedOrderData.priority === 'normal' ? 'text-yellow-400' : 'text-green-400'
                       }`}>{selectedOrderData.priority}</p>
                   </div>
                 )}

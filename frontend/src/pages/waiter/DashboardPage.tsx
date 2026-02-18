@@ -57,8 +57,9 @@ export default function WaiterDashboardPage() {
     try {
       const token = localStorage.getItem('auth_access_token') || undefined;
       const received = await waiterService.getReceivedOrders(token);
-      setReadyOrders(received.filter(o => o.status === OrderStatus.READY));
-      setServedOrders(received.filter(o => o.status === OrderStatus.SERVED));
+      // WaiterOrder from backend has no status field — all received orders are READY
+      setReadyOrders(received);
+      setServedOrders([]); // Served orders come from order-service, not waiter-service
     } catch (err) {
       console.error('[WaiterDashboard] Failed to load received orders:', err);
     }
@@ -106,17 +107,7 @@ export default function WaiterDashboardPage() {
     if (!selectedTable || newOrderItems.length === 0) return;
 
     try {
-      // Create order via API
-      const orderData = {
-        items: newOrderItems.map(item => ({
-          itemId: item.menuItem.id,
-          quantity: item.quantity,
-          unitPrice: item.menuItem.price,
-        })),
-        tableNumber: selectedTableData?.tableNumber,
-      };
-
-      const newOrder = await createOrderAPI(orderData as never);
+      const newOrder = await createOrderAPI(selectedTableData?.tableNumber ?? 0);
       occupyTable(selectedTable, newOrder.id);
       setNewOrderItems([]);
       setOrderMode('view');
@@ -160,7 +151,7 @@ export default function WaiterDashboardPage() {
 
   const handleOpenPayment = (order: Order) => {
     setPaymentOrder(order);
-    setPaymentAmount(order.totalPrice.toFixed(2));
+    setPaymentAmount((order.totalAmount ?? order.totalPrice ?? 0).toFixed(2));
     setPaymentMethod('cash');
     setActiveTab('payment');
   };
@@ -169,12 +160,12 @@ export default function WaiterDashboardPage() {
     if (!paymentOrder) return;
 
     try {
-      // Mark order as completed
-      await updateOrderStatusAPI(paymentOrder.id, 'COMPLETED');
+      // Mark order as served (SERVED is the final status in backend)
+      await updateOrderStatusAPI(paymentOrder.id, OrderStatus.SERVED);
 
       // Release table if it has one
-      if (paymentOrder.tableNumber) {
-        const table = tables.find(t => t.tableNumber === paymentOrder.tableNumber);
+      if (paymentOrder.tableId ?? paymentOrder.tableNumber) {
+        const table = tables.find(t => t.tableNumber === (paymentOrder.tableId ?? paymentOrder.tableNumber));
         if (table) {
           releaseTable(table.id);
         }
@@ -311,7 +302,7 @@ export default function WaiterDashboardPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="text-lg font-bold text-white">
-                          Order #{order.orderId.slice(-6)}
+                          Order #{String(order.orderId).slice(-6)}
                         </h3>
                         {order.tableId && (
                           <p className="text-brand-primary font-semibold flex items-center gap-1">
@@ -322,7 +313,7 @@ export default function WaiterDashboardPage() {
                       <div className="text-right">
                         <div className="flex items-center gap-1 text-yellow-400 text-sm">
                           <MdAccessTime />
-                          {getWaitingTime(order.orderTime)}
+                          {getWaitingTime(order.readyTime)}
                         </div>
                         <div className="bg-green-600 text-white text-xs px-2 py-1 rounded mt-1 font-semibold">
                           READY
@@ -331,26 +322,21 @@ export default function WaiterDashboardPage() {
                     </div>
 
                     <div className="space-y-1 mb-4 border-t border-brand-border pt-3">
-                      {order.items.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm text-gray-300">
-                          <span>{item.quantity}x {item.name}</span>
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm text-gray-300">
+                          <span>{item.quantity}x {item.itemName}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-between mb-4 border-t border-brand-border pt-3">
-                      <span className="text-gray-400 text-sm">Total:</span>
-                      <span className="text-brand-primary font-bold text-lg">
-                        ${order.totalPrice.toFixed(2)}
-                      </span>
-                    </div>
+                    {/* WaiterOrder from backend doesn't include totalPrice */}
 
                     <button
-                      onClick={() => handleMarkAsServed(order.orderId)}
-                      disabled={serveLoading === order.orderId}
+                      onClick={() => handleMarkAsServed(String(order.orderId))}
+                      disabled={serveLoading === String(order.orderId)}
                       className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      <MdCheck /> {serveLoading === order.orderId ? 'Updating...' : 'Mark as Served'}
+                      <MdCheck /> {serveLoading === String(order.orderId) ? 'Updating...' : 'Mark as Served'}
                     </button>
                   </div>
                 ))}
@@ -416,7 +402,7 @@ export default function WaiterDashboardPage() {
                         <div className="bg-brand-dark border border-brand-border p-4 rounded-lg">
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-sm text-gray-400">Current Order</p>
-                            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${tableOrder.status === OrderStatus.PENDING ? 'bg-yellow-900/30 text-yellow-400' :
+                            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${tableOrder.status === OrderStatus.CREATED ? 'bg-yellow-900/30 text-yellow-400' :
                               tableOrder.status === OrderStatus.CONFIRMED ? 'bg-blue-900/30 text-blue-400' :
                                 tableOrder.status === OrderStatus.PREPARING ? 'bg-orange-900/30 text-orange-400' :
                                   tableOrder.status === OrderStatus.READY ? 'bg-green-900/30 text-green-400' :
@@ -432,15 +418,15 @@ export default function WaiterDashboardPage() {
                           <div className="space-y-2 mb-4">
                             {tableOrder.items.map((item) => (
                               <div key={item.id} className="flex items-center justify-between text-sm text-gray-300">
-                                <span>{item.quantity}x {item.menuItem.name}</span>
-                                <span className="text-brand-primary">${(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                                <span>{item.quantity}x {item.itemName || item.menuItem?.name || 'Item'}</span>
+                                <span className="text-brand-primary">${((item.unitPrice ?? 0) * item.quantity).toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
 
                           <div className="border-t border-brand-border pt-3 flex justify-between font-bold text-white mb-4">
                             <span>Total:</span>
-                            <span className="text-brand-primary text-xl">${tableOrder.totalPrice.toFixed(2)}</span>
+                            <span className="text-brand-primary text-xl">${(tableOrder.totalAmount ?? tableOrder.totalPrice ?? 0).toFixed(2)}</span>
                           </div>
 
                           <div className="space-y-2">
@@ -624,8 +610,8 @@ export default function WaiterDashboardPage() {
                   <div className="space-y-2 mb-4 border-t border-brand-border pt-4">
                     {paymentOrder.items.map((item) => (
                       <div key={item.id} className="flex justify-between text-gray-300">
-                        <span>{item.quantity}x {item.menuItem.name}</span>
-                        <span>${(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                        <span>{item.quantity}x {item.itemName || item.menuItem?.name || 'Item'}</span>
+                        <span>${((item.unitPrice ?? 0) * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -633,7 +619,7 @@ export default function WaiterDashboardPage() {
                   <div className="border-t border-brand-border pt-4 flex justify-between mb-6">
                     <span className="text-lg font-bold text-white">Total Amount:</span>
                     <span className="text-3xl font-bold text-brand-primary">
-                      ${paymentOrder.totalPrice.toFixed(2)}
+                      ${(paymentOrder.totalAmount ?? paymentOrder.totalPrice ?? 0).toFixed(2)}
                     </span>
                   </div>
 
@@ -681,16 +667,16 @@ export default function WaiterDashboardPage() {
                         placeholder="0.00"
                         step="0.01"
                       />
-                      {parseFloat(paymentAmount) > paymentOrder.totalPrice && (
+                      {parseFloat(paymentAmount) > (paymentOrder.totalAmount ?? paymentOrder.totalPrice ?? 0) && (
                         <p className="mt-2 text-green-400 font-semibold">
-                          Change: ${(parseFloat(paymentAmount) - paymentOrder.totalPrice).toFixed(2)}
+                          Change: ${(parseFloat(paymentAmount) - (paymentOrder.totalAmount ?? paymentOrder.totalPrice ?? 0)).toFixed(2)}
                         </p>
                       )}
                     </div>
 
                     <button
                       onClick={handleProcessPayment}
-                      disabled={loadingAPI || parseFloat(paymentAmount) < paymentOrder.totalPrice}
+                      disabled={loadingAPI || parseFloat(paymentAmount) < (paymentOrder.totalAmount ?? paymentOrder.totalPrice ?? 0)}
                       className="w-full py-4 px-6 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       <MdCheckCircle /> Complete Payment & Mark Order Done
@@ -715,7 +701,7 @@ export default function WaiterDashboardPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h3 className="text-lg font-bold text-white">
-                            Order #{order.orderId.slice(-6)}
+                            Order #{String(order.orderId).slice(-6)}
                           </h3>
                           {order.tableId && (
                             <p className="text-brand-primary font-semibold flex items-center gap-1">
@@ -729,9 +715,9 @@ export default function WaiterDashboardPage() {
                       </div>
 
                       <div className="space-y-1 mb-4 border-t border-brand-border pt-3">
-                        {order.items.slice(0, 3).map((item) => (
-                          <div key={item.id} className="text-sm text-gray-400">
-                            {item.quantity}x {item.name}
+                        {order.items.slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="text-sm text-gray-400">
+                            {item.quantity}x {item.itemName}
                           </div>
                         ))}
                         {order.items.length > 3 && (
@@ -741,12 +727,7 @@ export default function WaiterDashboardPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between border-t border-brand-border pt-3">
-                        <span className="text-gray-400 text-sm">Total:</span>
-                        <span className="text-brand-primary font-bold text-xl">
-                          ${order.totalPrice.toFixed(2)}
-                        </span>
-                      </div>
+                      {/* WaiterOrder from backend doesn't include totalPrice */}
                     </button>
                   ))}
                 </div>

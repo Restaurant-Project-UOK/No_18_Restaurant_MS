@@ -358,9 +358,9 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const totalRevenue = orders.reduce((sum, order) => sum + order.totalPrice, 0);
-  const completedOrders = orders.filter((o) => o.status === OrderStatus.COMPLETED).length;
-  const pendingOrders = orders.filter((o) => o.status === OrderStatus.PENDING).length;
+  const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount ?? order.totalPrice ?? 0), 0);
+  const completedOrders = orders.filter((o) => o.status === OrderStatus.SERVED).length;
+  const pendingOrders = orders.filter((o) => o.status === OrderStatus.CREATED).length;
   const availableTables = tables.filter((t) => t.status === 'available').length;
 
   return (
@@ -446,8 +446,8 @@ export default function AdminDashboardPage() {
                         <p className="text-sm text-gray-500">{order.items.length} items</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-white">${order.totalPrice.toFixed(2)}</p>
-                        <p className={`text-xs font-medium ${order.status === OrderStatus.PENDING ? 'text-yellow-400' :
+                        <p className="font-bold text-white">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</p>
+                        <p className={`text-xs font-medium ${order.status === OrderStatus.CREATED ? 'text-yellow-400' :
                           order.status === OrderStatus.PREPARING ? 'text-blue-400' :
                             'text-green-400'
                           }`}>
@@ -698,11 +698,11 @@ export default function AdminDashboardPage() {
                       <td className="px-6 py-4 text-sm text-gray-300 font-mono">#{order.id.slice(-6)}</td>
                       <td className="px-6 py-4 text-sm text-white">{order.customerName}</td>
                       <td className="px-6 py-4 text-sm text-gray-400">{order.items.length} items</td>
-                      <td className="px-6 py-4 text-right text-sm font-semibold text-brand-primary">${order.totalPrice.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right text-sm font-semibold text-brand-primary">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</td>
                       <td className="px-6 py-4">
                         <select
                           value={order.status}
-                          onChange={(e) => updateOrderStatusAPI(order.id, e.target.value)}
+                          onChange={(e) => updateOrderStatusAPI(order.id, e.target.value as OrderStatus)}
                           className="px-3 py-1 bg-brand-darker border border-brand-border rounded-lg text-sm text-white focus:outline-none focus:border-brand-primary"
                         >
                           {Object.values(OrderStatus).map((status) => (

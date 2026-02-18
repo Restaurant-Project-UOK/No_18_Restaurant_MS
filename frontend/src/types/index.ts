@@ -32,23 +32,26 @@ export interface AuthState {
 // MENU & PRODUCTS
 // ============================================
 
+export interface MenuCategory {
+  id: number;
+  name: string;
+  description?: string;
+  sortOrder?: number;
+}
+
 export interface MenuItem {
   id: number;
   name: string;
   description: string;
   price: number;
   imageUrl?: string;
-  available: boolean;
-  preparationTime: number;
+  /** Backend field: isActive (not `available`) */
+  isActive: boolean;
+  /** Kept for backward compat — maps to isActive */
+  available?: boolean;
   categories: MenuCategory[];
-  ingredients?: string[];
-  allergens?: string[];
-}
-
-export interface MenuCategory {
-  id: number;
-  name: string;
-  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ============================================
@@ -57,37 +60,57 @@ export interface MenuCategory {
 
 export interface OrderItem {
   id: string;
-  menuItemId: number;
-  menuItem: MenuItem;
+  /** Backend field name: itemId */
+  itemId: number;
+  /** Backend field name: itemName */
+  itemName: string;
   quantity: number;
+  /** Backend field name: unitPrice */
+  unitPrice: number;
+  // Legacy aliases kept for backward compat
+  menuItemId?: number;
+  menuItem?: { name: string };
   specialRequests?: string;
-  price: number;
+  price?: number;
 }
 
+/**
+ * OrderStatus enum — matches backend Order.OrderStatus exactly.
+ * Values: CREATED → CONFIRMED → PREPARING → READY → SERVED
+ */
 export enum OrderStatus {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  PREPARING = 'preparing',
-  READY = 'ready',
-  SERVED = 'served',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  CREATED = 'CREATED',
+  CONFIRMED = 'CONFIRMED',
+  PREPARING = 'PREPARING',
+  READY = 'READY',
+  SERVED = 'SERVED',
 }
 
 export interface Order {
+  /** Backend field: id (Long) */
   id: string;
-  customerId: string;
-  customerName: string;
-  items: OrderItem[];
+  /** Backend field: tableId (Long) — replaces tableNumber */
+  tableId: number;
+  /** Backend field: userId (Long) */
+  userId?: number;
   status: OrderStatus;
-  totalPrice: number;
+  /** Backend field: totalAmount (BigDecimal) — replaces totalPrice */
+  totalAmount: number;
+  /** Backend field: createdAt (LocalDateTime) — replaces orderTime */
+  createdAt: string;
+  items: OrderItem[];
+
+  // Legacy aliases kept for backward compat with existing UI components
   tableNumber?: number;
-  orderTime: string;
+  totalPrice?: number;
+  orderTime?: string;
+  customerName?: string;
+  customerId?: string;
+  notes?: string;
+  isPaid?: boolean;
+  paymentMethod?: 'cash' | 'card' | 'digital';
   estimatedTime?: string;
   completedTime?: string;
-  notes?: string;
-  paymentMethod?: 'cash' | 'card' | 'digital';
-  isPaid: boolean;
 }
 
 // ============================================

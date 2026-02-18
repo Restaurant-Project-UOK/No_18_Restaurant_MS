@@ -5,20 +5,18 @@ import { apiRequest } from '../config/api';
 // TYPES & INTERFACES
 // ============================================
 
+/**
+ * Request body for POST /api/orders
+ * NOTE: tableId and userId are sent as headers (X-Table-Id, X-User-Id).
+ * The body is optional — items are fetched automatically from Cart Service.
+ */
 export interface CreateOrderRequest {
-  items: {
-    itemId: number;
-    itemName: string;
-    quantity: number;
-    unitPrice: number;
-    specialRequests?: string;
-  }[];
-  tableNumber?: number;
-  notes?: string;
+  tableId: number;
+  userId?: number;
 }
 
 export interface UpdateOrderStatusRequest {
-  status: string;
+  status: OrderStatus;
 }
 
 export interface UserOrderSummary {
@@ -29,26 +27,21 @@ export interface UserOrderSummary {
   itemCount: number;
 }
 
-export interface TableOrdersResponse {
-  tableNumber: number;
-  orders: Order[];
-  totalOrders: number;
-}
-
 // ============================================
 // ORDER API ENDPOINTS
 // ============================================
 
 /**
  * POST /api/orders
- * Creates a new order
- * 
- * @param orderData - Order creation data
+ * Creates a new order. tableId and userId are passed as headers.
+ * Items are fetched automatically from Cart Service — no body needed.
+ *
+ * @param tableId - Table ID (sent as X-Table-Id header)
  * @param accessToken - JWT access token
  * @returns Created order
  */
 export const createOrder = async (
-  orderData: CreateOrderRequest,
+  tableId: number,
   accessToken?: string
 ): Promise<Order> => {
   try {
@@ -57,12 +50,20 @@ export const createOrder = async (
       throw new Error('Unauthorized: No access token');
     }
 
+    // Get userId from stored user
+    const storedUser = localStorage.getItem('auth_user');
+    const userId = storedUser ? JSON.parse(storedUser)?.id : undefined;
+
     const response = await apiRequest<Order>(
       '/api/orders',
       {
         method: 'POST',
         jwt: token,
-        body: JSON.stringify(orderData),
+        headers: {
+          'X-Table-Id': String(tableId),
+          ...(userId ? { 'X-User-Id': String(userId) } : {}),
+        },
+        // Body is optional — cart service provides items
       }
     );
 
@@ -76,11 +77,11 @@ export const createOrder = async (
 };
 
 /**
- * PATCH /api/orders/:orderId
+ * PATCH /api/orders/:orderId/status
  * Updates order status
- * 
+ *
  * @param orderId - Order ID
- * @param statusData - Status update data
+ * @param statusData - Status update data { status: OrderStatus }
  * @param accessToken - JWT access token
  * @returns Updated order
  */
@@ -115,8 +116,8 @@ export const updateOrderStatus = async (
 
 /**
  * GET /api/orders/active
- * Returns all active orders (not completed or cancelled)
- * 
+ * Returns all active orders (no auth required)
+ *
  * @returns Array of active orders
  */
 export const getActiveOrders = async (): Promise<Order[]> => {
@@ -137,9 +138,9 @@ export const getActiveOrders = async (): Promise<Order[]> => {
 /**
  * GET /api/orders/user
  * Returns all orders for the authenticated user (order history)
- * 
+ *
  * @param accessToken - JWT token for authentication
- * @returns Array of user's order summaries
+ * @returns Array of user's orders
  */
 export const getUserOrders = async (
   accessToken?: string
@@ -167,35 +168,67 @@ export const getUserOrders = async (
 };
 
 /**
- * GET /api/orders/table/:tableNumber
- * Returns all orders for a specific table
- * 
- * @param tableNumber - Table number
+ * GET /api/orders/table
+ * Returns all orders for a specific table.
+ * NOTE: tableId is sent as X-Table-Id header (not a path variable).
+ *
+ * @param tableId - Table ID
  * @param accessToken - JWT token for authentication
  * @returns Orders for the table
  */
 export const getTableOrders = async (
-  tableNumber: number,
+  tableId: number,
   accessToken?: string
-): Promise<TableOrdersResponse> => {
+): Promise<Order[]> => {
   try {
     const token = accessToken || localStorage.getItem('auth_access_token');
     if (!token) {
       throw new Error('Unauthorized: No access token');
     }
 
-    const response = await apiRequest<TableOrdersResponse>(
-      `/api/orders/table/${tableNumber}`,
+    const response = await apiRequest<Order[]>(
+      '/api/orders/table',
       {
         jwt: token,
+        headers: {
+          'X-Table-Id': String(tableId),
+        },
       }
     );
 
-    console.log('[orderService] Retrieved', response.totalOrders, 'orders for table:', tableNumber);
+    console.log('[orderService] Retrieved', response.length, 'orders for table:', tableId);
     return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch table orders';
     console.error('[orderService] Failed to fetch table orders:', message);
+    throw new Error(message);
+  }
+};
+
+/**
+ * GET /api/orders/:orderId
+ * Returns a single order by ID
+ *
+ * @param orderId - Order ID
+ * @param accessToken - JWT token
+ * @returns Order
+ */
+export const getOrderById = async (
+  orderId: string,
+  accessToken?: string
+): Promise<Order> => {
+  try {
+    const token = accessToken || localStorage.getItem('auth_access_token');
+
+    const response = await apiRequest<Order>(
+      `/api/orders/${orderId}`,
+      token ? { jwt: token } : {}
+    );
+
+    return response;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch order';
+    console.error('[orderService] Failed to fetch order:', message);
     throw new Error(message);
   }
 };
@@ -210,4 +243,5 @@ export const orderService = {
   getActiveOrders,
   getUserOrders,
   getTableOrders,
+  getOrderById,
 };

@@ -4,19 +4,22 @@ import { apiRequest } from '../config/api';
 // TYPES & INTERFACES
 // ============================================
 
+/**
+ * Request body for POST /payments/create
+ * Backend PaymentRequest DTO: { orderId: Long, amount: Double }
+ */
 export interface CreatePaymentRequest {
-  total: number;
-  currency: string;
-  method: string;
-  intent: string;
-  description: string;
+  orderId: number;
+  amount: number;
 }
 
+/**
+ * Response from POST /payments/create
+ * Backend returns a plain string: the PayPal sandbox approval URL
+ * e.g. "https://www.sandbox.paypal.com/checkoutnow?token=XXXX"
+ */
 export interface CreatePaymentResponse {
-  orderId: string;
-  approvalLink: string;
-  paymentId?: string;
-  expiresAt?: string;
+  approvalUrl: string;
 }
 
 export enum PaymentStatus {
@@ -44,26 +47,30 @@ export interface PaymentDetails {
 
 /**
  * POST /payments/create
- * Creates a new payment session (Public)
- * 
- * @param paymentData - Payment creation data
- * @returns Redirect Link or Payment ID
+ * Creates a new PayPal payment order.
+ * NOTE: No /api prefix — payment service is mapped at /payments.
+ *
+ * @param paymentData - { orderId, amount }
+ * @returns Object containing the PayPal approval URL
  */
 export const createPayment = async (
   paymentData: CreatePaymentRequest
 ): Promise<CreatePaymentResponse> => {
   try {
-    // Note: Endpoint specified as /payments/create without /api prefix
-    const response = await apiRequest<CreatePaymentResponse>(
+    // Backend returns a plain string (PayPal URL), not JSON
+    const approvalUrl = await apiRequest<string>(
       '/payments/create',
       {
         method: 'POST',
-        body: JSON.stringify(paymentData),
+        body: JSON.stringify({
+          orderId: paymentData.orderId,
+          amount: paymentData.amount,
+        }),
       }
     );
 
-    console.log('[paymentService] Payment session created:', response.paymentId);
-    return response;
+    console.log('[paymentService] Payment session created, approval URL received');
+    return { approvalUrl };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create payment';
     console.error('[paymentService] Failed to create payment:', message);
@@ -73,8 +80,8 @@ export const createPayment = async (
 
 /**
  * GET /api/payments/:id
- * Gets payment details
- * 
+ * Gets payment details (endpoint not yet confirmed in backend docs — kept for future use)
+ *
  * @param paymentId - Payment ID
  * @param accessToken - JWT access token
  * @returns Payment details
@@ -107,8 +114,8 @@ const getPaymentDetails = async (
 
 /**
  * PATCH /api/payments/:id
- * Updates payment status (approve/cancel/complete)
- * 
+ * Updates payment status (endpoint not yet confirmed in backend docs — kept for future use)
+ *
  * @param paymentId - Payment ID
  * @param status - New payment status
  * @param accessToken - JWT access token
@@ -145,10 +152,6 @@ const updatePaymentStatus = async (
 
 /**
  * Approves a payment (shortcut method)
- * 
- * @param paymentId - Payment ID
- * @param accessToken - JWT access token
- * @returns Updated payment details
  */
 const approvePayment = async (
   paymentId: string,
@@ -159,10 +162,6 @@ const approvePayment = async (
 
 /**
  * Cancels a payment (shortcut method)
- * 
- * @param paymentId - Payment ID
- * @param accessToken - JWT access token
- * @returns Updated payment details
  */
 const cancelPayment = async (
   paymentId: string,

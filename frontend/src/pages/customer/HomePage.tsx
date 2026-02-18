@@ -330,9 +330,9 @@ export default function CustomerHomePage() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <p className="font-semibold text-white text-sm">Order #{order.id.slice(-6)}</p>
-                        <p className="text-xs text-gray-400">{new Date(order.orderTime).toLocaleDateString()}</p>
+                        <p className="text-xs text-gray-400">{new Date(order.createdAt || order.orderTime || Date.now()).toLocaleDateString()}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${order.status === OrderStatus.PENDING
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${order.status === OrderStatus.CREATED
                         ? 'bg-yellow-900/30 text-yellow-300'
                         : order.status === OrderStatus.PREPARING
                           ? 'bg-blue-900/30 text-blue-300'
@@ -346,13 +346,13 @@ export default function CustomerHomePage() {
                     <div className="space-y-1 mb-2 pb-2 border-b border-brand-border">
                       {order.items.map((item: any) => (
                         <p key={item.id} className="text-xs text-gray-300">
-                          {item.quantity}x {item.menuItem.name}
+                          {item.quantity}x {item.itemName || item.menuItem?.name || 'Item'}
                         </p>
                       ))}
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs">Total:</span>
-                      <span className="text-brand-primary font-semibold text-sm">${order.totalPrice.toFixed(2)}</span>
+                      <span className="text-brand-primary font-semibold text-sm">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
                 ))

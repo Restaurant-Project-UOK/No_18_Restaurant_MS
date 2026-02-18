@@ -25,6 +25,12 @@ export interface HourlyForecast {
   predictedOrders: number;
 }
 
+export interface HourlyBreakdown {
+  hour: number;
+  orderCount: number;
+  revenue?: number;
+}
+
 export interface HealthLog {
   timestamp: string;
   task: string;
@@ -108,6 +114,23 @@ export const analyticsService = {
       );
     } catch (error) {
       console.error('[analyticsService] Failed to fetch hourly forecast:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * GET /api/admin/analytics/hourly
+   * Hourly order breakdown (actual data, not forecast)
+   */
+  getHourlyOrders: async (): Promise<HourlyBreakdown[]> => {
+    try {
+      const token = localStorage.getItem('auth_access_token');
+      return await apiRequest<HourlyBreakdown[]>(
+        `${API_CONFIG.ANALYTICS_ENDPOINT}/hourly`,
+        { jwt: token || undefined }
+      );
+    } catch (error) {
+      console.error('[analyticsService] Failed to fetch hourly orders:', error);
       throw error;
     }
   },

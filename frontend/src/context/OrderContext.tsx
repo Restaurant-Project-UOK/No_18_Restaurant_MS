@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { Order, OrderStatus } from '../types';
-import { orderService, CreateOrderRequest, TableOrdersResponse } from '../services/orderService';
+import { orderService } from '../services/orderService';
 import { useAuth } from './AuthContext';
 
 interface OrderContextType {
@@ -13,11 +13,11 @@ interface OrderContextType {
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getOrdersByCustomer: (customerId: string) => Order[];
   // API methods
-  createOrderAPI: (orderData: CreateOrderRequest) => Promise<Order>;
-  updateOrderStatusAPI: (orderId: string, status: string) => Promise<Order>;
+  createOrderAPI: (tableId: number) => Promise<Order>;
+  updateOrderStatusAPI: (orderId: string, status: OrderStatus) => Promise<Order>;
   getActiveOrdersAPI: () => Promise<Order[]>;
   getUserOrdersAPI: () => Promise<Order[]>;
-  getTableOrdersAPI: (tableNumber: number) => Promise<TableOrdersResponse>;
+  getTableOrdersAPI: (tableId: number) => Promise<Order[]>;
   loadingAPI: boolean;
   errorAPI: string | null;
   refreshOrders: () => Promise<void>;
@@ -80,7 +80,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setOrders((prev) =>
       prev.map((order) =>
         order.id === orderId
-          ? { ...order, status, completedTime: status === OrderStatus.COMPLETED ? new Date().toISOString() : undefined }
+          ? { ...order, status, completedTime: status === OrderStatus.SERVED ? new Date().toISOString() : undefined }
           : order
       )
     );
@@ -115,12 +115,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // API METHODS
   // ============================================
 
-  const createOrderAPI = useCallback(async (orderData: CreateOrderRequest): Promise<Order> => {
+  const createOrderAPI = useCallback(async (tableId: number): Promise<Order> => {
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
       const jwt = getJwtToken() || undefined;
-      const newOrder = await orderService.createOrder(orderData, jwt);
+      const newOrder = await orderService.createOrder(tableId, jwt);
       // Add to local state
       setOrders((prev) => [...prev, newOrder]);
       return newOrder;
@@ -133,7 +133,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [getJwtToken]);
 
-  const updateOrderStatusAPI = useCallback(async (orderId: string, status: string): Promise<Order> => {
+  const updateOrderStatusAPI = useCallback(async (orderId: string, status: OrderStatus): Promise<Order> => {
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
@@ -184,12 +184,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [getJwtToken]);
 
-  const getTableOrdersAPI = useCallback(async (tableNumber: number): Promise<TableOrdersResponse> => {
+  const getTableOrdersAPI = useCallback(async (tableId: number): Promise<Order[]> => {
     setLoadingAPI(true);
     setErrorAPI(null);
     try {
       const jwt = getJwtToken() || undefined;
-      const tableOrders = await orderService.getTableOrders(tableNumber, jwt);
+      const tableOrders = await orderService.getTableOrders(tableId, jwt);
       return tableOrders;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch table orders';

@@ -1,5 +1,5 @@
 import { Order, OrderStatus } from '../types';
-import { apiRequest, API_CONFIG } from '../config/api';
+import { apiRequest } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -13,10 +13,9 @@ export interface KitchenOrder {
     quantity: number;
     specialRequests?: string;
   }[];
-  tableNumber?: number;
-  customerName: string;
+  tableId?: number;
   status: OrderStatus;
-  orderTime: string;
+  createdAt: string;
   priority?: 'low' | 'normal' | 'high';
 }
 
@@ -38,9 +37,10 @@ export interface HealthCheckResponse {
 // ============================================
 
 /**
- * GET /api/orders?status=PENDING,CONFIRMED,PREPARING
- * Returns all orders that need kitchen attention
- * 
+ * GET /api/orders/active
+ * Returns all active orders for kitchen display.
+ * Filters to statuses relevant to kitchen: CREATED, CONFIRMED, PREPARING.
+ *
  * @param accessToken - JWT access token (Kitchen or Admin role)
  * @returns Array of kitchen orders
  */
@@ -51,36 +51,43 @@ const getKitchenOrders = async (accessToken?: string): Promise<KitchenOrder[]> =
       throw new Error('Unauthorized: No access token');
     }
 
-    // Use ORDERS_ENDPOINT with query params
     const response = await apiRequest<Order[]>(
-      '/api/kitchen/orders',
+      '/api/orders/active',
       {
         jwt: token,
       }
     );
 
-    // Transform to kitchen order format and sort by priority
-    const kitchenOrders = response.map((order) => ({
-      orderId: order.id,
-      items: order.items.map((item) => ({
-        id: item.id,
-        name: item.menuItem.name,
-        quantity: item.quantity,
-        specialRequests: item.specialRequests,
-      })),
-      tableNumber: order.tableNumber,
-      customerName: order.customerName,
-      status: order.status,
-      orderTime: order.orderTime,
-      priority: determinePriority(order),
-    }));
+    // Filter to kitchen-relevant statuses and transform to kitchen order format
+    const kitchenStatuses: OrderStatus[] = [
+      OrderStatus.CREATED,
+      OrderStatus.CONFIRMED,
+      OrderStatus.PREPARING,
+    ];
+
+    const kitchenOrders = response
+      .filter((order) => kitchenStatuses.includes(order.status))
+      .map((order) => ({
+        orderId: String(order.id),
+        items: order.items.map((item) => ({
+          id: String(item.id),
+          // Support both new (itemName) and legacy (menuItem.name) field names
+          name: item.itemName || item.menuItem?.name || '',
+          quantity: item.quantity,
+          specialRequests: item.specialRequests,
+        })),
+        tableId: order.tableId ?? order.tableNumber,
+        status: order.status,
+        createdAt: order.createdAt || order.orderTime || new Date().toISOString(),
+        priority: determinePriority(order),
+      }));
 
     // Sort by priority and time
     kitchenOrders.sort((a, b) => {
       const priorityWeight = { high: 3, normal: 2, low: 1 };
       const priorityDiff = priorityWeight[b.priority!] - priorityWeight[a.priority!];
       if (priorityDiff !== 0) return priorityDiff;
-      return new Date(a.orderTime).getTime() - new Date(b.orderTime).getTime();
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
 
     console.log('[kitchenService] Retrieved', kitchenOrders.length, 'orders');
@@ -93,8 +100,8 @@ const getKitchenOrders = async (accessToken?: string): Promise<KitchenOrder[]> =
 };
 
 /**
- * PATCH /api/orders/:id
- * Marks order as created/confirmed
+ * PATCH /api/orders/:id/status
+ * Marks order as CONFIRMED (kitchen accepts the order)
  */
 const markOrderCreated = async (
   orderId: string,
@@ -105,7 +112,7 @@ const markOrderCreated = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}`,
+      `/api/orders/${orderId}/status`,
       {
         method: 'PATCH',
         jwt: token,
@@ -126,8 +133,8 @@ const markOrderCreated = async (
 };
 
 /**
- * PATCH /api/orders/:id
- * Marks order as being prepared
+ * PATCH /api/orders/:id/status
+ * Marks order as PREPARING
  */
 const markOrderPreparing = async (
   orderId: string,
@@ -138,10 +145,11 @@ const markOrderPreparing = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `/api/kitchen/orders/${orderId}/preparing`,
+      `/api/orders/${orderId}/status`,
       {
-        method: 'POST',
+        method: 'PATCH',
         jwt: token,
+        body: JSON.stringify({ status: OrderStatus.PREPARING }),
       }
     );
 
@@ -158,8 +166,8 @@ const markOrderPreparing = async (
 };
 
 /**
- * PATCH /api/orders/:id
- * Marks order as ready for pickup
+ * PATCH /api/orders/:id/status
+ * Marks order as READY for pickup
  */
 const markOrderReady = async (
   orderId: string,
@@ -170,10 +178,11 @@ const markOrderReady = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `/api/kitchen/orders/${orderId}/ready`,
+      `/api/orders/${orderId}/status`,
       {
-        method: 'POST',
+        method: 'PATCH',
         jwt: token,
+        body: JSON.stringify({ status: OrderStatus.READY }),
       }
     );
 
@@ -190,15 +199,14 @@ const markOrderReady = async (
 };
 
 /**
- * GET /api/admin/analytics/kitchen-health
- * Health check endpoint
+ * Health check — falls back gracefully if endpoint doesn't exist
  */
 const getKitchenHealth = async (): Promise<HealthCheckResponse> => {
   try {
     return await apiRequest<HealthCheckResponse>(
-      `${API_CONFIG.ANALYTICS_ENDPOINT}/kitchen-health`
+      '/api/admin/analytics/kitchen-health'
     );
-  } catch (error) {
+  } catch {
     return {
       status: 'DOWN',
       timestamp: new Date().toISOString(),
@@ -207,10 +215,10 @@ const getKitchenHealth = async (): Promise<HealthCheckResponse> => {
 };
 
 /**
- * Determines order priority based on time
+ * Determines order priority based on waiting time
  */
 const determinePriority = (order: Order): 'low' | 'normal' | 'high' => {
-  const orderTime = new Date(order.orderTime).getTime();
+  const orderTime = new Date(order.createdAt || order.orderTime || Date.now()).getTime();
   const now = Date.now();
   const minutesWaiting = (now - orderTime) / (1000 * 60);
 
