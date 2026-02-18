@@ -5,7 +5,7 @@ import { useMenu } from '../../context/MenuContext';
 import { useCart } from '../../context/CartContext';
 import { useOrders } from '../../context/OrderContext';
 import { Order, OrderStatus, MenuItem } from '../../types';
-import { MdRestaurant, MdHistory, MdShoppingCart, MdPerson, MdCheckCircle, MdAdd, MdRemove, MdSearch, MdClose } from 'react-icons/md';
+import { MdRestaurant, MdHistory, MdShoppingCart, MdPerson, MdCheckCircle, MdAdd, MdRemove, MdSearch, MdClose, MdLocalDining, MdRoomService, MdReceiptLong, MdPayment, MdAccessTime } from 'react-icons/md';
 import { getAccessToken } from '../../utils/cookieStorage';
 import { paymentService } from '../../services/paymentService';
 import { ChatbotWidget } from '../../components/ChatbotWidget';
@@ -15,7 +15,7 @@ export default function CustomerHomePage() {
   const { user } = useAuth();
   const { categories, getItemsByCategory } = useMenu();
   const { cartItems, addToCart, removeFromCart, updateQuantity, getTotalPrice, checkout: checkoutCart, loading: cartLoading, initCart } = useCart();
-  const { loadUserHistory, getOrdersByCustomer } = useOrders();
+  const { orders, loadUserHistory, getOrdersByCustomer, loadingAPI: orderLoading } = useOrders();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [showCart, setShowCart] = useState(false);
   const [showOrderHistory, setShowOrderHistory] = useState(false);
@@ -55,7 +55,7 @@ export default function CustomerHomePage() {
     );
   }
 
-  const customerOrders = getOrdersByCustomer(user?.id || '');
+  const customerOrders = showOrderHistory ? orders : getOrdersByCustomer(user?.id || '');
 
   const handleAddToCart = async (menuItem: MenuItem) => {
     await addToCart(menuItem, 1);
@@ -263,7 +263,7 @@ export default function CustomerHomePage() {
                       onClick={() => setCheckoutStep('checkout')}
                       className="w-full py-3 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors"
                     >
-                      Proceed to Checkout
+                      Proceed to Order
                     </button>
                   </div>
                 )}
@@ -307,7 +307,7 @@ export default function CustomerHomePage() {
                         disabled={loading || cartLoading}
                         className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors text-sm"
                       >
-                        Checkout
+                        Place Order
                       </button>
                     </div>
                   </div>
@@ -316,80 +316,152 @@ export default function CustomerHomePage() {
             )}
           </div>
         ) : showOrderHistory ? (
-          <div className="flex-1 bg-brand-dark p-4 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <MdHistory /> My Orders
-              </h2>
+          <div className="flex-1 bg-brand-dark p-4 flex flex-col md:p-6 lg:max-w-4xl lg:mx-auto lg:w-full">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <MdHistory className="text-brand-primary" />  My Orders
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">Track your active and past orders</p>
+              </div>
               <button
                 onClick={() => setShowOrderHistory(false)}
-                className="text-gray-400 hover:text-white text-2xl"
+                className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >
-                ×
+                <MdClose className="text-2xl" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3">
-              {customerOrders.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">No orders yet</p>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
+              {orderLoading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-400">Loading your orders...</p>
+                </div>
+              ) : customerOrders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                  <MdReceiptLong className="text-6xl mb-4 text-gray-600" />
+                  <p className="text-xl text-gray-400">No orders history found</p>
+                  <p className="text-sm text-gray-500">Your ordered items will appear here</p>
+                </div>
               ) : (
-                customerOrders.map((order: Order) => (
-                  <div key={order.id} className="bg-brand-darker border border-brand-border p-3 rounded-lg">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-semibold text-white text-sm">Order #{order.id.slice(-6)}</p>
-                        <p className="text-xs text-gray-400">{new Date(order.createdAt || order.orderTime || Date.now()).toLocaleDateString()}</p>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${order.status === OrderStatus.CREATED
-                        ? 'bg-yellow-900/30 text-yellow-300'
-                        : order.status === OrderStatus.PREPARING
-                          ? 'bg-blue-900/30 text-blue-300'
-                          : order.status === OrderStatus.SERVED
-                            ? 'bg-purple-900/30 text-purple-300'
-                            : 'bg-gray-900/30 text-gray-300'
-                        }`}>
-                        {order.status.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="space-y-1 mb-2 pb-2 border-b border-brand-border">
-                      {order.items.map((item: { id: string; quantity: number; itemName?: string; menuItem?: { name: string } }) => (
-                        <p key={item.id} className="text-xs text-gray-300">
-                          {item.quantity}x {item.itemName || item.menuItem?.name || 'Item'}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <span className="text-gray-400 text-xs">Total:</span>
-                        <p className="text-brand-primary font-bold text-sm">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</p>
-                      </div>
+                customerOrders
+                  .sort((a, b) => new Date(b.createdAt || b.orderTime || '').getTime() - new Date(a.createdAt || a.orderTime || '').getTime())
+                  .map((order: Order) => {
+                    const isServed = order.status === OrderStatus.SERVED;
+                    const isPaid = order.isPaid;
 
-                      {(order.status === OrderStatus.READY || order.status === OrderStatus.SERVED) && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              setLoading(true);
-                              const { approvalUrl } = await paymentService.createPayment({
-                                orderId: Number(order.id),
-                                amount: order.totalAmount ?? order.totalPrice ?? 0
-                              });
-                              // Redirect to PayPal
-                              window.location.href = approvalUrl;
-                            } catch {
-                              alert('Failed to initiate payment. Please try again.');
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                          disabled={loading}
-                          className="px-4 py-1.5 bg-brand-primary hover:bg-orange-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
-                        >
-                          Pay to Order
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
+                    // Status Progress Logic
+                    const steps = [
+                      { status: OrderStatus.CONFIRMED, icon: MdAccessTime, label: 'Confirmed' },
+                      { status: OrderStatus.PREPARING, icon: MdLocalDining, label: 'Preparing' },
+                      { status: OrderStatus.READY, icon: MdRoomService, label: 'Ready' },
+                      { status: OrderStatus.SERVED, icon: MdCheckCircle, label: 'Served' },
+                    ];
+
+                    const currentStepIndex = steps.findIndex(s => s.status === order.status);
+                    const stepIndex = currentStepIndex === -1 && order.status === OrderStatus.CREATED ? 0 : currentStepIndex;
+
+                    return (
+                      <div key={order.id} className="bg-brand-darker border border-brand-border p-5 rounded-xl shadow-lg hover:border-brand-primary/50 transition-colors">
+                        {/* Header */}
+                        <div className="flex flex-wrap gap-4 items-start justify-between mb-6 border-b border-brand-border/50 pb-4">
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-lg font-bold text-white">Order #{order.id.slice(-6)}</span>
+                              <span className="text-xs text-gray-500 font-mono">{order.id}</span>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {new Date(order.createdAt || order.orderTime || Date.now()).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-brand-primary">
+                              ${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}
+                            </div>
+                            <div className="text-xs text-gray-400">Total Amount</div>
+                          </div>
+                        </div>
+
+                        {/* Status Tracker */}
+                        <div className="mb-6 relative">
+                          <div className="absolute top-3 left-0 w-full h-1 bg-gray-800 rounded-full"></div>
+                          <div
+                            className="absolute top-3 left-0 h-1 bg-brand-primary rounded-full transition-all duration-500"
+                            style={{ width: `${(Math.max(0, stepIndex) / (steps.length - 1)) * 100}%` }}
+                          ></div>
+                          <div className="relative flex justify-between">
+                            {steps.map((step, idx) => {
+                              const isActive = idx <= stepIndex;
+                              const isCurrent = idx === stepIndex;
+                              const Icon = step.icon;
+                              return (
+                                <div key={step.label} className="flex flex-col items-center gap-2">
+                                  <div className={`w-7 h-7 rounded-full flex items-center justify-center z-10 border-2 transition-colors ${isActive ? 'bg-brand-primary border-brand-primary text-white' : 'bg-brand-dark border-gray-600 text-gray-600'
+                                    } ${isCurrent ? 'ring-2 ring-brand-primary/40 ring-offset-2 ring-offset-brand-darker' : ''}`}>
+                                    <Icon className="text-xs" />
+                                  </div>
+                                  <span className={`text-[10px] font-medium uppercase tracking-wider ${isActive ? 'text-brand-primary' : 'text-gray-600'}`}>
+                                    {step.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Items */}
+                        <div className="bg-black/20 rounded-lg p-3 mb-4 space-y-2">
+                          {order.items.map((item: { id: string; quantity: number; itemName?: string; menuItem?: { name: string } }) => (
+                            <div key={item.id} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 flex items-center justify-center bg-gray-800 text-gray-400 rounded text-xs font-medium">
+                                  {item.quantity}
+                                </span>
+                                <span className="text-gray-300">{item.itemName || item.menuItem?.name || 'Item'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex justify-end pt-2">
+                          {isServed ? (
+                            isPaid ? (
+                              <div className="px-5 py-2.5 bg-green-900/20 text-green-400 border border-green-900/50 rounded-lg flex items-center gap-2 font-medium cursor-default">
+                                <MdCheckCircle /> Paid
+                              </div>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    setLoading(true);
+                                    const { approvalUrl } = await paymentService.createPayment({
+                                      orderId: Number(order.id),
+                                      amount: order.totalAmount ?? order.totalPrice ?? 0
+                                    });
+                                    window.location.href = approvalUrl;
+                                  } catch {
+                                    alert('Failed to initiate payment. Please try again.');
+                                  } finally {
+                                    setLoading(false);
+                                  }
+                                }}
+                                disabled={loading}
+                                className="px-6 py-2.5 bg-brand-primary hover:bg-orange-600 text-white font-bold rounded-lg shadow-lg shadow-brand-primary/20 transition-all transform hover:-translate-y-0.5 flex items-center gap-2"
+                              >
+                                <MdPayment /> Pay Now
+                              </button>
+                            )
+                          ) : (
+                            <div className="text-xs text-gray-500 font-medium italic flex items-center gap-1">
+                              Wait for "Served" status to pay
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
               )}
             </div>
           </div>
