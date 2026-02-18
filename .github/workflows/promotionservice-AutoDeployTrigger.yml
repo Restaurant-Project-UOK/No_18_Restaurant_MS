@@ -9,22 +9,36 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash  # ensure bash is used, avoids line continuation issues
+
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build Spring Boot jar
+        run: ./mvnw clean package -DskipTests
 
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Login to ACR (Docker)
+        run: az acr login --name res18
+
       - name: Build Docker image
-        run: |
-          docker build -t res18.azurecr.io/promotion-service:${{ github.sha }} -f services/promotion-service/Dockerfile .
+        run: docker build -t res18.azurecr.io/promotion-service:${{ github.sha }} -f services/promotion-service/Dockerfile .
 
       - name: Push Docker image to ACR
-        run: |
-          docker push res18.azurecr.io/promotion-service:${{ github.sha }}
+        run: docker push res18.azurecr.io/promotion-service:${{ github.sha }}
 
-      - name: Deploy to Azure Container Apps
+      - name: Deploy Container App
         run: az containerapp update --name promotion-service --resource-group ransini-02 --image res18.azurecr.io/promotion-service:${{ github.sha }}
