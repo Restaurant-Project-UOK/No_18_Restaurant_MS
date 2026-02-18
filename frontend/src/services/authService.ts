@@ -27,7 +27,19 @@ export interface LoginRequest {
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  user: UserProfile;
+  tokenType: string;
+  accessTokenExpiresIn: number;
+  refreshTokenExpiresIn: number;
+  // Note: backend does NOT return a user object — use JWT decode + profile fetch
+  user?: {
+    id: number;
+    fullName: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    role: number;
+    createdAt?: string;
+  };
 }
 
 export interface RefreshTokenRequest {

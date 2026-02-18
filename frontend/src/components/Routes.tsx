@@ -2,6 +2,12 @@ import { ReactNode } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+/** Read tableId from cookie (set at login with 5h expiry) */
+const getTableIdFromCookie = (): string | null => {
+  const match = document.cookie.match(/(?:^|;\s*)tableId=(\d+)/);
+  return match ? match[1] : null;
+};
+
 interface ProtectedRouteProps {
   children: ReactNode;
   fallback?: string;
@@ -55,9 +61,13 @@ export const QRProtectedRoute: React.FC<QRProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, user } = useAuth();
   const [searchParams] = useSearchParams();
-  const tableId = searchParams.get('tableId');
 
-  // No tableId in URL = invalid QR access
+  // Resolve tableId: URL param takes priority, then cookie fallback
+  const tableIdFromUrl = searchParams.get('tableId');
+  const tableIdFromCookie = getTableIdFromCookie();
+  const tableId = tableIdFromUrl || tableIdFromCookie;
+
+  // No tableId anywhere = invalid QR access
   if (!tableId) {
     return <Navigate to="/login" replace />;
   }
@@ -74,4 +84,3 @@ export const QRProtectedRoute: React.FC<QRProtectedRouteProps> = ({
 
   return <>{children}</>;
 };
-

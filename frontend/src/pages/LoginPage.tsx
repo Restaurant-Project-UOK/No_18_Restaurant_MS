@@ -1,46 +1,154 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/authService';
 import { MdRestaurant, MdLogin, MdQrCode2 } from 'react-icons/md';
+
+// ============================================================
+// Helpers
+// ============================================================
+
+/** Decode a JWT payload (client-side, no signature verification) */
+const decodeJwt = (token: string): Record<string, unknown> => {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return {};
+  }
+};
+
+/** Returns true if the JWT is present and not expired */
+const isTokenValid = (token: string | null): boolean => {
+  if (!token) return false;
+  const payload = decodeJwt(token);
+  const exp = Number(payload.exp ?? 0);
+  return exp > Date.now() / 1000;
+};
+
+/** Store tableId as a cookie valid for 5 hours */
+const setTableIdCookie = (tableId: number) => {
+  const expires = new Date(Date.now() + 5 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `tableId=${tableId}; expires=${expires}; path=/; SameSite=Lax`;
+};
+
+/** Get the dashboard path for a given role number */
+const dashboardForRole = (role: number, tableId?: number | null): string => {
+  if (role === 2) return '/admin';
+  if (role === 3) return '/kitchen';
+  if (role === 4) return '/waiter';
+  // Customer (role === 1)
+  return tableId ? `/customer?tableId=${tableId}` : '/customer';
+};
+
+// ============================================================
+// Component
+// ============================================================
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingToken, setCheckingToken] = useState(true);
+
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const tableId = searchParams.get('tableId');
-  const staffParam = searchParams.get('staff');
-  const isStaffLogin = !tableId || staffParam === 'true'; // Staff if no tableId or staff param is true
 
+  const tableIdParam = searchParams.get('tableId');
+  const staffParam = searchParams.get('staff');
+  // Staff login: no tableId in URL, or explicit ?staff=true
+  const isStaffLogin = !tableIdParam || staffParam === 'true';
+
+  // ----------------------------------------------------------
+  // On mount: check existing session, try refresh if needed
+  // Priority: valid access token → refresh token → show form
+  // ----------------------------------------------------------
+  useEffect(() => {
+    const handleExistingSession = async () => {
+      const accessToken = localStorage.getItem('auth_access_token');
+      const refreshToken = localStorage.getItem('auth_refresh_token');
+
+      // Helper: redirect based on a valid access token
+      const redirectFromToken = (token: string): boolean => {
+        const payload = decodeJwt(token);
+        const role = Number(payload.role ?? 1);
+        const jwtTableId = Number(payload.tableId ?? 0);
+
+        // Customer scanning a DIFFERENT table → must re-authenticate
+        if (role === 1 && tableIdParam) {
+          const newTableId = parseInt(tableIdParam, 10);
+          if (newTableId !== jwtTableId) return false; // show form
+          setTableIdCookie(newTableId);
+          navigate(dashboardForRole(1, newTableId), { replace: true });
+          return true;
+        }
+
+        const resolvedTableId = jwtTableId > 0 ? jwtTableId : null;
+        if (resolvedTableId) setTableIdCookie(resolvedTableId);
+        navigate(dashboardForRole(role, resolvedTableId), { replace: true });
+        return true;
+      };
+
+      // 1️⃣ Access token is still valid — redirect immediately (no network call)
+      if (isTokenValid(accessToken)) {
+        if (redirectFromToken(accessToken!)) return;
+        setCheckingToken(false);
+        return;
+      }
+
+      // 2️⃣ Access token expired — try refresh token silently
+      if (refreshToken) {
+        try {
+          const refreshed = await authService.refreshAccessToken({ refreshToken });
+          localStorage.setItem('auth_access_token', refreshed.accessToken);
+          if (redirectFromToken(refreshed.accessToken)) return;
+        } catch {
+          // Refresh failed (expired/revoked) — clear stale tokens
+          localStorage.removeItem('auth_access_token');
+          localStorage.removeItem('auth_refresh_token');
+          localStorage.removeItem('auth_user');
+          localStorage.removeItem('auth_user_id');
+        }
+      }
+
+      // 3️⃣ No valid session — show the login form
+      setCheckingToken(false);
+    };
+
+    handleExistingSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ----------------------------------------------------------
+  // Form submit handler
+  // ----------------------------------------------------------
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await login(email, password, tableId ? parseInt(tableId, 10) : undefined);
+      const tableIdFromUrl = tableIdParam ? parseInt(tableIdParam, 10) : undefined;
 
-      // The user object is now reconstructed from JWT in AuthContext.login
-      // but we might need to wait for state to update or use the response from login if it returns the user.
-      // AuthContext.login usually updates the 'user' state.
-      // Actually, my previous refactor of AuthContext.login returns the decoded user.
+      // If a customer already has a valid token but scanned a NEW table QR,
+      // we need fresh tokens with the new tableId embedded.
+      // We call authService.login directly to get the raw token response,
+      // then update localStorage and AuthContext state via the normal login flow.
+      await login(email, password, tableIdFromUrl);
 
-      // Let's check user role and redirect
-      const role = response.role; // Login now returns the user object with role
+      // Read role and tableId from the freshly stored JWT
+      const token = localStorage.getItem('auth_access_token') || '';
+      const payload = decodeJwt(token);
+      const role = Number(payload.role ?? 1);
+      const jwtTableId = Number(payload.tableId ?? 0);
 
-      if (role === 2) { // ADMIN
-        navigate('/admin');
-      } else if (role === 3) { // KITCHEN
-        navigate('/kitchen');
-      } else if (role === 4) { // WAITER
-        navigate('/waiter');
-      } else {
-        // Customer redirect - preserve tableId if present
-        navigate(tableId ? `/customer?tableId=${tableId}` : '/customer');
-      }
+      // Store tableId cookie (URL param takes priority over JWT claim)
+      const resolvedTableId = tableIdFromUrl || (jwtTableId > 0 ? jwtTableId : null);
+      if (resolvedTableId) setTableIdCookie(resolvedTableId);
+
+      navigate(dashboardForRole(role, resolvedTableId), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
@@ -48,12 +156,28 @@ export default function LoginPage() {
     }
   };
 
+  // ----------------------------------------------------------
+  // While checking existing token, show a minimal spinner
+  // ----------------------------------------------------------
+  if (checkingToken) {
+    return (
+      <div className="min-h-screen bg-brand-dark flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400 text-sm">Checking session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------------
+  // Login form
+  // ----------------------------------------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-dark to-brand-darker flex items-center justify-center p-6">
-      {/* STAFF LOGIN - DESKTOP FIRST */}
+      {/* STAFF LOGIN */}
       {isStaffLogin ? (
         <div className="w-full max-w-md mx-auto">
-          {/* Header Section */}
           <div className="mb-12 text-center">
             <div className="inline-flex items-center justify-center w-24 h-24 bg-brand-primary rounded-lg mb-6">
               <MdRestaurant className="text-5xl text-white" />
@@ -62,7 +186,6 @@ export default function LoginPage() {
             <p className="text-gray-400 text-lg">Staff Portal</p>
           </div>
 
-          {/* Main Content - Centered Form */}
           <form onSubmit={handleLogin} className="card space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Staff Login</h2>
@@ -75,11 +198,11 @@ export default function LoginPage() {
 
               <div className="space-y-5">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-semibold mb-2 text-gray-300">
+                  <label htmlFor="staff-email" className="block text-sm font-semibold mb-2 text-gray-300">
                     Email Address
                   </label>
                   <input
-                    id="email"
+                    id="staff-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -90,11 +213,11 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="block text-sm font-semibold mb-2 text-gray-300">
+                  <label htmlFor="staff-password" className="block text-sm font-semibold mb-2 text-gray-300">
                     Password
                   </label>
                   <input
-                    id="password"
+                    id="staff-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -117,9 +240,8 @@ export default function LoginPage() {
           </form>
         </div>
       ) : (
-        /* CUSTOMER LOGIN - MOBILE FIRST */
+        /* CUSTOMER LOGIN */
         <div className="w-full max-w-md">
-          {/* Logo/Header */}
           <div className="mb-8 text-center">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-brand-primary rounded-lg mb-4">
               <MdRestaurant className="text-4xl text-white" />
@@ -128,18 +250,18 @@ export default function LoginPage() {
             <p className="text-gray-400 mt-2">Customer Service</p>
           </div>
 
-          {/* QR Code Access Info */}
-          {tableId && (
+          {tableIdParam && (
             <div className="bg-brand-primary/20 border border-brand-primary rounded-lg p-4 mb-6 flex items-start gap-3">
               <MdQrCode2 className="text-2xl text-brand-primary flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-brand-primary mb-1">QR Code Access</p>
-                <p className="text-xs text-gray-300">Table {tableId} - Sign in or create a new account to get started</p>
+                <p className="text-xs text-gray-300">
+                  Table {tableIdParam} — Sign in or create a new account to get started
+                </p>
               </div>
             </div>
           )}
 
-          {/* Login Form */}
           <form onSubmit={handleLogin} className="card space-y-6 mb-6">
             {error && (
               <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300 text-sm">
@@ -148,11 +270,11 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold mb-3 text-gray-300">
+              <label htmlFor="customer-email" className="block text-sm font-semibold mb-3 text-gray-300">
                 Email Address
               </label>
               <input
-                id="email"
+                id="customer-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -163,11 +285,11 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold mb-3 text-gray-300">
+              <label htmlFor="customer-password" className="block text-sm font-semibold mb-3 text-gray-300">
                 Password
               </label>
               <input
-                id="password"
+                id="customer-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -187,23 +309,17 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Register Link - Only for Customer QR Access */}
-          {!isStaffLogin && (
-            <div className="text-center mb-8">
-              <p className="text-sm text-gray-400 mb-3">Don't have an account?</p>
-              <button
-                onClick={() => navigate(`/register?tableId=${tableId}`)}
-                className="text-brand-primary hover:text-brand-primary/80 font-semibold transition-colors"
-              >
-                Create Account
-              </button>
-            </div>
-          )}
-
-
+          <div className="text-center mb-8">
+            <p className="text-sm text-gray-400 mb-3">Don't have an account?</p>
+            <button
+              onClick={() => navigate(`/register?tableId=${tableIdParam}`)}
+              className="text-brand-primary hover:text-brand-primary/80 font-semibold transition-colors"
+            >
+              Create Account
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
-

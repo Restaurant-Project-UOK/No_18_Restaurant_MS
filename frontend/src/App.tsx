@@ -6,6 +6,7 @@ import { CartProvider } from './context/CartContext';
 import { TableProvider } from './context/TableContext';
 import { RoleBasedRoute, QRProtectedRoute } from './components/Routes';
 import { RootRedirect } from './components/RootRedirect';
+import { ChatbotWidget } from './components/ChatbotWidget';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -20,6 +21,8 @@ export function App() {
   return (
     <Router>
       <AuthProvider>
+        {/* Chatbot: injected for all authenticated roles, removed on logout */}
+        <ChatbotWidget />
         <OrderProvider>
           <MenuProvider>
             <CartProvider>

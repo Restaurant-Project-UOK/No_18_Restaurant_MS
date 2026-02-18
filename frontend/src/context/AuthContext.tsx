@@ -5,6 +5,16 @@ import { authService, LoginRequest, RegisterRequest } from '../services/authServ
 import { profileService, UpdateProfileRequest } from '../services/profileService';
 import { staffService } from '../services/staffService';
 
+/** Decode a JWT payload without verifying signature */
+const decodeJwtPayload = (token: string): Record<string, unknown> => {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return {};
+  }
+};
+
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, tableId?: number) => Promise<User>;
   logout: () => Promise<void>;
@@ -63,26 +73,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const loginData: LoginRequest = { email, password, tableId: tableId || 0 };
       const response = await authService.login(loginData);
 
-      const user: User = {
-        id: response.user.id.toString(),
-        email: response.user.email,
-        name: response.user.fullName,
-        role: response.user.role,
-        phone: response.user.phone,
-        address: response.user.address,
-        createdAt: response.user.createdAt || new Date().toISOString(),
-      };
-
-      console.log('[AuthContext] User data from login response:', user);
-
-      // Store tokens and user
+      // Store tokens first so profile fetch can use them
       localStorage.setItem('auth_access_token', response.accessToken);
       localStorage.setItem('auth_refresh_token', response.refreshToken);
+
+      // Decode JWT to get id and role (backend doesn't return user object)
+      const payload = decodeJwtPayload(response.accessToken);
+      const userId = String(payload.sub || '');
+      const userRole = Number(payload.role ?? UserRole.CUSTOMER);
+
+      // Try to fetch full profile; fall back to JWT claims if unavailable
+      let user: User;
+      try {
+        const profile = await profileService.getMyProfile(response.accessToken);
+        user = {
+          id: String(profile.id),
+          email: profile.email,
+          name: profile.fullName,
+          role: profile.role,
+          phone: profile.phone,
+          address: profile.address,
+          createdAt: profile.createdAt || new Date().toISOString(),
+        };
+      } catch (profileErr) {
+        console.warn('[AuthContext] Profile fetch failed, using JWT claims:', profileErr);
+        user = {
+          id: userId,
+          email,
+          name: email.split('@')[0],
+          role: userRole,
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      console.log('[AuthContext] User data after login:', user);
+
       localStorage.setItem('auth_user', JSON.stringify(user));
       localStorage.setItem('auth_user_id', user.id.toString());
 
       setAuthState({
-        user: user,
+        user,
         token: response.accessToken,
         isAuthenticated: true,
         loading: false,
