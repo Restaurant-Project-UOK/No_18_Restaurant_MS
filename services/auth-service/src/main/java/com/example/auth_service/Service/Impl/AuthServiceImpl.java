@@ -21,6 +21,7 @@ import com.example.auth_service.Repository.UserRepository;
 import com.example.auth_service.Security.JwtService;
 import com.example.auth_service.Service.AuthService;
 import com.example.auth_service.Service.TokenBlacklistService;
+import com.example.auth_service.Exception.UserAlreadyExistsException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,7 +53,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void register(RegisterRequestDto dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            // Log a clear, non-sensitive error before throwing domain exception.
+            // Avoid logging password or other sensitive tokens.
+            log.error("Registration failed - email already in use: email={}, fullName={}, phone={}, provider={}, role={}",
+                    dto.getEmail(), dto.getFullName(), dto.getPhone(), dto.getProvider(), dto.getRole());
+            throw new UserAlreadyExistsException("Email already in use");
         }
 
         User user = new User();
@@ -91,7 +96,7 @@ public class AuthServiceImpl implements AuthService {
         activity.setUser(user);
         activity.setTableNo(tableId);// Will be updated from client if customer
         activity.setLoginAt(LocalDateTime.now());
-        activity.setLogoutAt(null); ;
+        activity.setLogoutAt(null);
         userActivityRepository.save(activity);
         log.info("User activity tracked - login for user: {}", user.getEmail());
 
@@ -124,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
         activity.setUser(user);
         activity.setTableNo(tableId);// Will be updated from client if customer
         activity.setLoginAt(LocalDateTime.now());
-        activity.setLogoutAt(null); ;
+        activity.setLogoutAt(null);
 
         userActivityRepository.save(activity);
         log.info("User activity tracked - Google login for user: {}", user.getEmail());
