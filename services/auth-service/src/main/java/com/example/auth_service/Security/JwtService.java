@@ -58,7 +58,7 @@ public class JwtService {
                 .claim("tableId", tableId)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpirationMs))
-                .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .signWith(SignatureAlgorithm.HS256, jwtSecret)
                 .compact();
     }
 
@@ -68,7 +68,7 @@ public class JwtService {
                 .claim("tableId", tableId)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + refreshTokenExpirationMs))
-                .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .signWith(SignatureAlgorithm.HS256, jwtSecret)
                 .compact();
     }
 
