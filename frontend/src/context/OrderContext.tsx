@@ -106,7 +106,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const getOrdersByCustomer = useCallback(
     (customerId: string) => {
-      return orders.filter((order) => order.customerId === customerId);
+      return orders.filter((order) => {
+        // Check legacy customerId
+        if (order.customerId === customerId) return true;
+        // Check userId (handle potential number vs string mismatch)
+        if (order.userId !== undefined) {
+          return String(order.userId) === String(customerId);
+        }
+        return false;
+      });
     },
     [orders]
   );

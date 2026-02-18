@@ -428,8 +428,8 @@ export default function CustomerHomePage() {
                         <span className="text-lg font-bold text-brand-primary">${item.price.toFixed(2)}</span>
                         <button
                           onClick={() => handleAddToCart(item)}
-                          disabled={!item.available || cartLoading}
-                          className={`px-3 py-1 rounded text-sm font-semibold transition-colors flex items-center gap-1 ${item.available && !cartLoading
+                          disabled={!(item.available ?? item.isActive) || cartLoading}
+                          className={`px-3 py-1 rounded text-sm font-semibold transition-colors flex items-center gap-1 ${(item.available ?? item.isActive) && !cartLoading
                             ? 'bg-brand-primary hover:bg-orange-600 text-white'
                             : 'bg-gray-700 text-gray-400 cursor-not-allowed'
                             }`}
@@ -459,7 +459,7 @@ export default function CustomerHomePage() {
           </button>
           <button
             onClick={() => setShowCart(true)}
-            disabled={cartItems.length === 0 || loading || cartLoading}
+            disabled={loading || cartLoading}
             className="flex-1 py-2 px-3 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 relative disabled:opacity-50"
           >
             <MdShoppingCart className="text-lg" />

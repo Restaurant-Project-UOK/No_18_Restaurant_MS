@@ -197,7 +197,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateProfile = useCallback(
     async (name: string, phone: string, address: string) => {
-      if (!authState.user || !authState.token) return;
+      const token = authState.token || localStorage.getItem('auth_access_token');
+      if (!authState.user || !token) return;
 
       setAuthState((prev) => ({ ...prev, loading: true, error: null }));
       try {
@@ -206,20 +207,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           phone,
           address,
         };
-        const updatedProfile = await profileService.updateMyProfile(updateData, authState.token);
+        const updatedProfile = await profileService.updateMyProfile(updateData, token);
 
-        const updatedUser = {
+        const updatedUser: User = {
           ...authState.user,
           name: updatedProfile.fullName,
           phone: updatedProfile.phone,
           address: updatedProfile.address,
         };
 
-        setAuthState({
-          ...authState,
+        setAuthState((prev) => ({
+          ...prev,
           user: updatedUser,
           loading: false,
-        });
+        }));
 
         localStorage.setItem('auth_user', JSON.stringify(updatedUser));
       } catch (error) {
@@ -232,7 +233,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw error;
       }
     },
-    [authState]
+    [authState.token, authState.user]
   );
 
   const addStaff = useCallback(

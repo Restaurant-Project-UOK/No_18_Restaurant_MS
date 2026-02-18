@@ -13,7 +13,7 @@ export const staffService = {
         try {
             const token = accessToken || localStorage.getItem('auth_access_token');
             return await apiRequest<Staff[]>(
-                `${API_CONFIG.ADMIN_ENDPOINT}/staff`,
+                `${API_CONFIG.ADMIN_ENDPOINT}/users`,
                 { jwt: token || undefined }
             );
         } catch (error) {

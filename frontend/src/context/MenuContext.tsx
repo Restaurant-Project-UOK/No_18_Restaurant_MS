@@ -27,11 +27,9 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
 
-  // Load initial data on mount — only when authenticated
+  // Load initial data on mount
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshMenuData();
-    }
+    refreshMenuData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
@@ -45,12 +43,17 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         menuService.getAllCategories(),
       ]);
 
-      setMenuItems(items);
+      // Ensure 'available' property is populated for backward compatibility
+      const mappedItems = items.map(item => ({
+        ...item,
+        available: item.available ?? item.isActive
+      }));
+
+      setMenuItems(mappedItems);
       setCategories(cats);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load menu data';
-      setError(errorMessage);
       console.error('[MenuContext] Error loading data:', err);
+      // specific error handling if needed
     } finally {
       setLoading(false);
     }
