@@ -24,6 +24,7 @@ jobs:
           java-version: 21
 
       - name: Build Spring Boot jar
+        working-directory: services/promotion-service
         run: ./mvnw clean package -DskipTests
 
       - name: Azure Login
