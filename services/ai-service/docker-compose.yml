@@ -1,0 +1,11 @@
+services:
+  chatbot:
+    build: .
+    container_name: res-chatbot
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./chroma_db:/tmp/chroma_db
+    restart: always

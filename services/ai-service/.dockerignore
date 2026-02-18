@@ -1,0 +1,14 @@
+env/
+*/env/
+**/env/
+.env
+__pycache__/
+*.pyc
+.git/
+.github/
+.vscode/
+chroma_db/
+packages.json
+README.md
+Dockerfile
+.dockerignore

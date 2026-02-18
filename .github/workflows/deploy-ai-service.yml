@@ -1,0 +1,65 @@
+name: Deploy AI Chatbot Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/ai-service/ChatBot/**"
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ai-chatbot-service
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 3. Login to Azure Container Registry
+      - name: Login to ACR
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # 4. Build and push Docker image
+      - name: Build and push Docker image
+        run: |
+          docker build \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest \
+            ./services/ai-service/ChatBot
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+
+      # 5. Deploy to Azure Container Apps
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          containerAppName: ai-chatbot-service
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          targetPort: 8000
+          environmentVariables: >-
+            AZURE_API_KEY=secretref:azure-api-key
+            AZURE_ENDPOINT=secretref:azure-endpoint
+            AZURE_DEPLOYMENT=secretref:azure-deployment
+            AZURE_EMBEDDING_DEPLOYMENT=secretref:azure-embedding-deployment
+            AZURE_API_VERSION=secretref:azure-api-version
+            OPENWEATHERMAP_API_KEY=secretref:openweathermap-api-key
+            MONGO_URI=secretref:mongo-uri
+
+      # 6. Logout from Azure
+      - name: Azure logout
+        run: az logout

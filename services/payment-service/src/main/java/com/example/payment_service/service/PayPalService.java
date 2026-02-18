@@ -33,10 +33,10 @@ public class PayPalService {
     @Value("${paypal.baseUrl:https://api.sandbox.paypal.com}")
     private String baseUrl;
 
-    @Value("${paypal.returnUrl:http://localhost:8081/payments/return}")
+    @Value("${paypal.returnUrl:http://localhost:8090/payments/return}")
     private String returnUrl;
 
-    @Value("${paypal.cancelUrl:http://localhost:8081/payments/cancel}")
+    @Value("${paypal.cancelUrl:http://localhost:8090/payments/cancel}")
     private String cancelUrl;
 
     @Value("${paypal.currency:USD}")

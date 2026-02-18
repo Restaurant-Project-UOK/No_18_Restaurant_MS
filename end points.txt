@@ -1,0 +1,17 @@
+https://reschatbot.livelymeadow-4f6bca4e.centralindia.azurecontainerapps.io/widget
+
+
+payment service 
+
+POST -> https://payment-service.livelymeadow-4f6bca4e.centralindia.azurecontainerapps.io/payments/create
+
+INPUT 
+
+{
+    "orderId": 12345,
+    "amount": 0.01
+}
+
+OUTPUT
+
+https://www.sandbox.paypal.com/checkoutnow?token=45090511LR051004C

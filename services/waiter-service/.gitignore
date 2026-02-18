@@ -31,3 +31,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Custom Logs and Build Artifacts ###
+*.log
+build_error.txt
+pom_minimal.xml
+pom_original_repro.xml
+dependency_tree.log
+effective-pom.log
+runtime_failure.log
+startup.log
+validate_debug.log
