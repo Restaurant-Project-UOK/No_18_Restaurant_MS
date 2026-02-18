@@ -2,9 +2,9 @@ name: Promotion Service CI/CD
 
 on:
   push:
-    branches: [ dev_disara ] # Runs when you push to your branch
+    branches: [ dev_disara ]
     paths:
-      - 'services/promotion-service/**' # Runs only if you change promotion files
+      - 'services/promotion-service/**'
 
 jobs:
   build-and-deploy:
@@ -18,11 +18,15 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Build and push image to ACR
+      - name: Build Docker image
         run: |
-          az acr build --registry res18 --image promotion-service:${{ github.sha }} --file services/promotion-service/Dockerfile .
+          docker build -t res18.azurecr.io/promotion-service:${{ github.sha }} -f services/promotion-service/Dockerfile .
 
-      - name: Deploy to Azure Container Apps (Manual CLI)
+      - name: Push Docker image to ACR
+        run: |
+          docker push res18.azurecr.io/promotion-service:${{ github.sha }}
+
+      - name: Deploy to Azure Container Apps
         run: |
           az containerapp update \
             --name promotion-service \
