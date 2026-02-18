@@ -22,11 +22,22 @@ export const API_CONFIG = {
 
 /**
  * Construct full API URL
+ * Strips a trailing `/api` from the base URL to prevent double-prefix
+ * if VITE_BASE_URL is set to something like `https://gateway.../api`
  */
 export const getApiUrl = (endpoint: string): string => {
-  const baseUrl = API_CONFIG.GATEWAY_BASE_URL.endsWith('/')
-    ? API_CONFIG.GATEWAY_BASE_URL.slice(0, -1)
-    : API_CONFIG.GATEWAY_BASE_URL;
+  let baseUrl = API_CONFIG.GATEWAY_BASE_URL;
+
+  // Remove trailing slash
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+
+  // Remove trailing /api if present — our endpoint paths already include /api/...
+  if (baseUrl.endsWith('/api')) {
+    baseUrl = baseUrl.slice(0, -4);
+  }
+
   return `${baseUrl}${endpoint}`;
 };
 
