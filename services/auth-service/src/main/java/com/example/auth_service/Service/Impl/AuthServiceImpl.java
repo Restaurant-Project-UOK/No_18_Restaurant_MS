@@ -205,6 +205,8 @@ public class AuthServiceImpl implements AuthService {
         profile.setAddress(dto.getAddress());
         user.setProfile(profile);
 
+        userRepository.save(user);
+
     }
 
     @Override
