@@ -68,6 +68,11 @@ export default function LoginPage() {
   // ----------------------------------------------------------
   useEffect(() => {
     const handleExistingSession = async () => {
+      // If tableId is in URL, store it immediately so it persists even if user navigates away/refresh
+      if (tableIdParam) {
+        setTableIdCookie(parseInt(tableIdParam, 10));
+      }
+
       const accessToken = getAccessToken();
       const refreshTokenStored = getRefreshToken();
 
@@ -249,15 +254,7 @@ export default function LoginPage() {
             </div>
           </form>
 
-          <div className="text-center pt-8 border-t border-brand-border mt-8">
-            <p className="text-xs text-gray-500 mb-2">Customer Access</p>
-            <button
-              onClick={() => navigate('/login?tableId=' + (document.cookie.match(/(?:^|;\s*)tableId=(\d+)/)?.[1] || '1'))}
-              className="text-gray-400 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
-            >
-              <MdRestaurant /> Customer Login
-            </button>
-          </div>
+
         </div>
       ) : (
         /* CUSTOMER LOGIN */
@@ -339,15 +336,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="text-center pt-8 border-t border-brand-border">
-            <p className="text-xs text-gray-500 mb-2">Employee Access</p>
-            <button
-              onClick={() => navigate('/login?staff=true')}
-              className="text-gray-400 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-1 mx-auto"
-            >
-              <MdLogin /> Staff Portal
-            </button>
-          </div>
+
         </div>
       )}
     </div>

@@ -1,13 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { MdRestaurant, MdEmail, MdLock, MdPerson, MdPhone } from 'react-icons/md';
+import { MdRestaurant, MdEmail, MdLock, MdPerson, MdPhone, MdLightbulb } from 'react-icons/md';
 
 export default function CustomerRegisterPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
   const [searchParams] = useSearchParams();
   const tableId = searchParams.get('tableId');
+
+  useEffect(() => {
+    if (tableId) {
+      // Store tableId cookie for 5 hours
+      const expires = new Date(Date.now() + 5 * 60 * 60 * 1000).toUTCString();
+      document.cookie = `tableId=${tableId}; expires=${expires}; path=/; SameSite=Lax`;
+    }
+  }, [tableId]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -207,7 +215,7 @@ export default function CustomerRegisterPage() {
         {/* Info Box */}
         <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
           <p className="text-blue-300 text-xs">
-            💡 <strong>Tip:</strong> Create an account to save your preferences and order history. You can only access **No 18 Restaurant** via QR code.
+            <MdLightbulb className="text-yellow-400 text-lg mr-2 inline" /> <strong>Tip:</strong> Create an account to save your preferences and order history. You can only access **No 18 Restaurant** via QR code.
           </p>
         </div>
       </div>

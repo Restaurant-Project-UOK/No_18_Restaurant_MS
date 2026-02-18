@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMenu } from '../../context/MenuContext';
 import { useCart } from '../../context/CartContext';
@@ -28,6 +28,12 @@ export default function CustomerHomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [lastOrderId, setLastOrderId] = useState('');
+
+  // Get Table ID
+  const [searchParams] = useSearchParams();
+  const tableIdFromUrl = searchParams.get('tableId');
+  const tableIdFromCookie = document.cookie.match(/(?:^|;\s*)tableId=(\d+)/)?.[1];
+  const tableId = tableIdFromUrl || tableIdFromCookie;
 
   // Initialize cart session when menu page loads (POST /api/cart/open)
   useEffect(() => {
@@ -108,7 +114,9 @@ export default function CustomerHomePage() {
             <MdRestaurant className="text-2xl text-brand-primary" />
             <div>
               <h1 className="text-lg font-bold text-white">No 18 Restaurant</h1>
-              <p className="text-xs text-gray-400">{user?.name}</p>
+              <p className="text-xs text-gray-400">
+                {tableId ? `Table ${tableId}` : 'Welcome'} • {user?.name?.split(' ')[0] || 'Guest'}
+              </p>
             </div>
           </div>
           <button
@@ -470,7 +478,7 @@ export default function CustomerHomePage() {
             {/* Show search results or no results message */}
             {searchQuery.trim() && menuItems.length === 0 && (
               <div className="flex-1 flex flex-col items-center justify-center py-12">
-                <div className="text-5xl text-gray-600 mb-3">🔍</div>
+                <MdSearch className="text-5xl text-gray-600 mb-3" />
                 <p className="text-gray-400 text-lg">No foods found</p>
                 <p className="text-gray-500 text-sm mt-1">Try searching with different keywords</p>
                 <button

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { kitchenService, KitchenOrder } from '../../services/kitchenService';
 import { waiterService, WaiterOrder } from '../../services/waiterService';
-import { MdNewReleases, MdWarning, MdCheckCircle, MdPerson, MdRefresh } from 'react-icons/md';
+import { MdNewReleases, MdWarning, MdCheckCircle, MdPerson, MdRefresh, MdRestaurantMenu, MdLocalFireDepartment, MdTimer } from 'react-icons/md';
 import { FaChalkboardUser } from 'react-icons/fa6';
 import { getAccessToken } from '../../utils/cookieStorage';
 
@@ -82,7 +82,7 @@ export default function KitchenDashboardPage() {
       <div className="bg-brand-darker border-b border-brand-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-2">👨‍🍳 Kitchen Display System</h1>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-2"><MdRestaurantMenu className="inline mb-1" /> Kitchen Display System</h1>
             <p className="text-gray-400">Chef {user?.name}</p>
           </div>
           <div className="flex items-center gap-3">
@@ -166,7 +166,7 @@ export default function KitchenDashboardPage() {
           {/* Preparing Orders */}
           <div className="bg-yellow-900/20 border-2 border-yellow-700 rounded-lg p-6">
             <h2 className="text-2xl font-bold text-yellow-300 mb-4 flex items-center gap-2">
-              🔥 Preparing ({preparingOrders.length})
+              <MdLocalFireDepartment /> Preparing ({preparingOrders.length})
             </h2>
             <div className="space-y-4">
               {preparingOrders.length === 0 ? (
@@ -233,7 +233,7 @@ export default function KitchenDashboardPage() {
                       ))}
                     </ul>
                     <p className="text-xs text-green-400 font-semibold animate-pulse">
-                      Waiting for pickup ⏱️
+                      Waiting for pickup <MdTimer className="inline ml-1" />
                     </p>
                   </div>
                 ))
@@ -296,7 +296,7 @@ export default function KitchenDashboardPage() {
                       <div>
                         <p className="font-semibold text-white">{item.quantity}x {item.name}</p>
                         {item.specialRequests && (
-                          <p className="text-sm text-yellow-400 font-semibold">⚠️ {item.specialRequests}</p>
+                          <p className="text-sm text-yellow-400 font-semibold"><MdWarning className="inline mr-1" /> {item.specialRequests}</p>
                         )}
                       </div>
                     </li>
