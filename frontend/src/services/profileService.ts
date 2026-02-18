@@ -1,4 +1,4 @@
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -39,7 +39,7 @@ export const getMyProfile = async (accessToken?: string): Promise<UserProfile> =
     }
 
     const response = await apiRequest<UserProfile>(
-      '/api/profile/me',
+      `${API_CONFIG.PROFILE_ENDPOINT}/me`,
       {
         jwt: token,
       }
@@ -73,7 +73,7 @@ export const updateMyProfile = async (
     }
 
     const response = await apiRequest<UserProfile>(
-      '/api/profile/me',
+      `${API_CONFIG.PROFILE_ENDPOINT}/me`,
       {
         method: 'PUT',
         jwt: token,

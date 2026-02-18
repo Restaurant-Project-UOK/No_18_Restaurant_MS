@@ -1,5 +1,5 @@
 import { Order } from '../types';
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -58,7 +58,7 @@ const openCart = async (accessToken?: string): Promise<CartOpenResponse> => {
     }
 
     const response = await apiRequest<CartOpenResponse>(
-      '/api/cart/open',
+      `${API_CONFIG.CART_ENDPOINT}/open`,
       {
         method: 'POST',
         jwt: token,
@@ -93,7 +93,7 @@ const addCartItem = async (
     }
 
     const response = await apiRequest<CartItemResponse>(
-      '/api/cart/items',
+      `${API_CONFIG.CART_ENDPOINT}/items`,
       {
         method: 'POST',
         jwt: token,
@@ -131,7 +131,7 @@ const updateCartItem = async (
     }
 
     const response = await apiRequest<CartItemResponse>(
-      `/api/cart/items/${itemId}`,
+      `${API_CONFIG.CART_ENDPOINT}/items/${itemId}`,
       {
         method: 'PUT',
         jwt: token,
@@ -163,7 +163,7 @@ const deleteCartItem = async (itemId: string, accessToken?: string): Promise<voi
     }
 
     await apiRequest<void>(
-      `/api/cart/items/${itemId}`,
+      `${API_CONFIG.CART_ENDPOINT}/items/${itemId}`,
       {
         method: 'DELETE',
         jwt: token,
@@ -200,7 +200,7 @@ const checkout = async (accessToken?: string): Promise<CheckoutResponse> => {
     }
 
     const response = await apiRequest<CheckoutResponse>(
-      '/api/cart/checkout',
+      `${API_CONFIG.CART_ENDPOINT}/checkout`,
       {
         method: 'POST',
         jwt: token,
@@ -233,7 +233,7 @@ const getOrder = async (orderId: string, accessToken?: string): Promise<Order> =
     }
 
     const response = await apiRequest<Order>(
-      `/api/cart/order/${orderId}`,
+      `${API_CONFIG.CART_ENDPOINT}/order/${orderId}`,
       {
         jwt: token,
       }

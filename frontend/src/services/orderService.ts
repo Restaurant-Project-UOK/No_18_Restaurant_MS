@@ -1,5 +1,5 @@
 import { Order, OrderStatus } from '../types';
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -71,7 +71,7 @@ export const createOrder = async (
     }
 
     const response = await apiRequest<Order>(
-      '/api/orders',
+      API_CONFIG.ORDERS_ENDPOINT,
       {
         method: 'POST',
         jwt: token,
@@ -113,7 +113,7 @@ export const updateOrderStatus = async (
     }
 
     const response = await apiRequest<Order>(
-      `/api/orders/${orderId}/status`,
+      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}/status`,
       {
         method: 'PATCH',
         jwt: token,
@@ -139,7 +139,7 @@ export const updateOrderStatus = async (
 export const getActiveOrders = async (): Promise<Order[]> => {
   try {
     const response = await apiRequest<Order[]>(
-      '/api/orders/active'
+      `${API_CONFIG.ORDERS_ENDPOINT}/active`
     );
 
     console.log('[orderService] Retrieved', response.length, 'active orders');
@@ -168,7 +168,7 @@ export const getUserOrders = async (
     }
 
     const response = await apiRequest<Order[]>(
-      '/api/orders/user',
+      `${API_CONFIG.ORDERS_ENDPOINT}/user`,
       {
         jwt: token,
       }
@@ -203,7 +203,7 @@ export const getTableOrders = async (
     }
 
     const response = await apiRequest<Order[]>(
-      '/api/orders/table',
+      `${API_CONFIG.ORDERS_ENDPOINT}/table`,
       {
         jwt: token,
         headers: {
@@ -237,7 +237,7 @@ export const getOrderById = async (
     const token = accessToken || localStorage.getItem('auth_access_token');
 
     const response = await apiRequest<Order>(
-      `/api/orders/${orderId}`,
+      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}`,
       token ? { jwt: token } : {}
     );
 

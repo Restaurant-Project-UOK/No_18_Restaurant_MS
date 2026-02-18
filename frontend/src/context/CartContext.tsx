@@ -15,9 +15,9 @@ interface CartContextType {
   cartItems: CartItem[];
   loading: boolean;
   error: string | null;
-  addToCart: (menuItem: MenuItem, quantity: number, specialRequests?: string) => void;
-  removeFromCart: (itemId: number) => void;
-  updateQuantity: (itemId: number, quantity: number) => void;
+  addToCart: (menuItem: MenuItem, quantity: number, specialRequests?: string) => Promise<void>;
+  removeFromCart: (itemId: number) => Promise<void>;
+  updateQuantity: (itemId: number, quantity: number) => Promise<void>;
   clearCart: () => void;
   getTotalPrice: () => number;
   getItemCount: () => number;

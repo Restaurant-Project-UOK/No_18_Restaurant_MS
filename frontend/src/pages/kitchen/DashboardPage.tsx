@@ -5,6 +5,8 @@ import { kitchenService, KitchenOrder } from '../../services/kitchenService';
 import { MdNewReleases, MdWarning, MdCheckCircle, MdPerson, MdRefresh } from 'react-icons/md';
 import { FaChalkboardUser } from 'react-icons/fa6';
 
+import { OrderStatus } from '../../types';
+
 export default function KitchenDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -14,9 +16,11 @@ export default function KitchenDashboardPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const pendingOrders = kitchenOrders.filter(o => o.status === 'pending' as never);
-  const preparingOrders = kitchenOrders.filter(o => o.status === 'preparing' as never);
-  const readyOrders = kitchenOrders.filter(o => o.status === 'ready' as never);
+  const pendingOrders = kitchenOrders.filter(o =>
+    o.status === OrderStatus.CREATED || o.status === OrderStatus.CONFIRMED
+  );
+  const preparingOrders = kitchenOrders.filter(o => o.status === OrderStatus.PREPARING);
+  const readyOrders = kitchenOrders.filter(o => o.status === OrderStatus.READY);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);

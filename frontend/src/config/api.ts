@@ -18,6 +18,9 @@ export const API_CONFIG = {
   ANALYTICS_ENDPOINT: '/api/admin/analytics',
   WAITER_ENDPOINT: '/api/waiter',
   KITCHEN_ENDPOINT: '/api/kitchen',
+  PROFILE_ENDPOINT: '/api/profile',
+  PAYMENT_ENDPOINT: '/api/payments',
+  PAYMENT_CREATE_ENDPOINT: '/payments',
 };
 
 /**
@@ -46,9 +49,9 @@ export const getApiUrl = (endpoint: string): string => {
  */
 export const apiRequest = async <T = Record<string, unknown>>(
   endpoint: string,
-  options: RequestInit & { jwt?: string } = {}
+  options: RequestInit & { jwt?: string; _isRetry?: boolean } = {}
 ): Promise<T> => {
-  const { jwt, ...fetchOptions } = options;
+  const { jwt, _isRetry, ...fetchOptions } = options;
 
   const headers: Record<string, string> = {
     ...(fetchOptions.headers as Record<string, string> || {}),
@@ -82,24 +85,50 @@ export const apiRequest = async <T = Record<string, unknown>>(
 
   const url = getApiUrl(endpoint);
 
-  // Debug: Log the actual request being made
-  console.log('[apiRequest] Making request:', {
-    url,
-    method: fetchOptions.method || 'GET (default)',
-    hasBody: !!fetchOptions.body,
-  });
-
   const response = await fetch(url, {
     ...fetchOptions,
     headers,
   });
 
-  // Handle 401 Unauthorized
-  if (response.status === 401) {
-    // Clear auth state on 401
+  // Handle 401 Unauthorized - Attempt Refresh
+  if (response.status === 401 && !_isRetry) {
+    const refreshToken = localStorage.getItem('auth_refresh_token');
+
+    if (refreshToken) {
+      try {
+        console.log('[apiRequest] 401 detected, attempting token refresh...');
+        const refreshResponse = await fetch(getApiUrl(`${API_CONFIG.AUTH_ENDPOINT}/refresh`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json();
+          // Update storage with new access token
+          localStorage.setItem('auth_access_token', data.accessToken);
+          console.log('[apiRequest] Token refresh successful, retrying request...');
+
+          // Retry original request with new token
+          return apiRequest<T>(endpoint, {
+            ...options,
+            jwt: data.accessToken,
+            _isRetry: true,
+          });
+        } else {
+          console.error('[apiRequest] Refresh token invalid or expired');
+        }
+      } catch (e) {
+        console.error('[apiRequest] Refresh attempt failed', e);
+      }
+    }
+
+    // If refresh failed or no refresh token, perform logout
+    console.warn('[apiRequest] Session expired, clearing storage and redirecting');
     localStorage.removeItem('auth_access_token');
     localStorage.removeItem('auth_refresh_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_user_id');
     window.location.href = '/login';
     throw new Error('Unauthorized. Please login again.');
   }
@@ -111,7 +140,9 @@ export const apiRequest = async <T = Record<string, unknown>>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(errorData.message || `API Error: ${response.status}`);
+    const errorMessage = errorData.message || `API Error: ${response.status}`;
+    console.error(`[apiRequest] Error ${response.status}: ${errorMessage}`);
+    throw new Error(errorMessage);
   }
 
   // Check content-type to handle both JSON and plain text responses
@@ -119,7 +150,7 @@ export const apiRequest = async <T = Record<string, unknown>>(
   if (contentType?.includes('application/json')) {
     return response.json();
   } else {
-    // Return text response (e.g., "Customer created successfully")
+    // Return text response
     return response.text() as Promise<T>;
   }
 };

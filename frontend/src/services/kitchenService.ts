@@ -1,5 +1,5 @@
 import { Order, OrderStatus } from '../types';
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -52,7 +52,7 @@ const getKitchenOrders = async (accessToken?: string): Promise<KitchenOrder[]> =
     }
 
     const response = await apiRequest<Order[]>(
-      '/api/orders/active',
+      `${API_CONFIG.KITCHEN_ENDPOINT}/orders`,
       {
         jwt: token,
       }
@@ -112,7 +112,7 @@ const markOrderCreated = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `/api/orders/${orderId}/status`,
+      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}/status`,
       {
         method: 'PATCH',
         jwt: token,
@@ -145,11 +145,10 @@ const markOrderPreparing = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `/api/orders/${orderId}/status`,
+      `${API_CONFIG.KITCHEN_ENDPOINT}/orders/${orderId}/preparing`,
       {
-        method: 'PATCH',
+        method: 'POST',
         jwt: token,
-        body: JSON.stringify({ status: OrderStatus.PREPARING }),
       }
     );
 
@@ -178,11 +177,10 @@ const markOrderReady = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     await apiRequest<Order>(
-      `/api/orders/${orderId}/status`,
+      `${API_CONFIG.KITCHEN_ENDPOINT}/orders/${orderId}/ready`,
       {
-        method: 'PATCH',
+        method: 'POST',
         jwt: token,
-        body: JSON.stringify({ status: OrderStatus.READY }),
       }
     );
 
@@ -204,7 +202,7 @@ const markOrderReady = async (
 const getKitchenHealth = async (): Promise<HealthCheckResponse> => {
   try {
     return await apiRequest<HealthCheckResponse>(
-      '/api/admin/analytics/kitchen-health'
+      `${API_CONFIG.ANALYTICS_ENDPOINT}/kitchen-health`
     );
   } catch {
     return {

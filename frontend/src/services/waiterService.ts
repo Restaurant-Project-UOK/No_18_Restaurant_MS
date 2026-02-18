@@ -1,5 +1,5 @@
 import { Order, OrderStatus } from '../types';
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -58,7 +58,7 @@ const getReceivedOrders = async (accessToken?: string): Promise<WaiterOrder[]> =
     }
 
     const response = await apiRequest<WaiterOrder[]>(
-      '/api/waiter/received-orders',
+      `${API_CONFIG.WAITER_ENDPOINT}/received-orders`,
       {
         jwt: token,
       }
@@ -99,7 +99,7 @@ const updateOrderStatus = async (
     }
 
     await apiRequest<Order>(
-      `/api/orders/${orderId}/status`,
+      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}/status`,
       {
         method: 'PATCH',
         jwt: token,
@@ -141,7 +141,7 @@ const getOrdersByTable = async (
     }
 
     const response = await apiRequest<Order[]>(
-      '/api/orders/table',
+      `${API_CONFIG.ORDERS_ENDPOINT}/table`,
       {
         jwt: token,
         headers: {
@@ -165,7 +165,7 @@ const getOrdersByTable = async (
 const getWaiterHealth = async (): Promise<HealthCheckResponse> => {
   try {
     const response = await apiRequest<HealthCheckResponse>(
-      '/api/waiter/health'
+      `${API_CONFIG.WAITER_ENDPOINT}/health`
     );
     console.log('[waiterService] Health check:', response.status);
     return response;

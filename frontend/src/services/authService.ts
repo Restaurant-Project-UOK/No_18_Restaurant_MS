@@ -1,4 +1,4 @@
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -78,7 +78,7 @@ export interface UserProfile {
 export const register = async (registerData: RegisterRequest, jwt?: string): Promise<RegisterResponse> => {
   try {
     const response = await apiRequest<string>(
-      '/api/auth/register',
+      `${API_CONFIG.AUTH_ENDPOINT}/register`,
       {
         method: 'POST',
         jwt: jwt,
@@ -114,7 +114,7 @@ export const register = async (registerData: RegisterRequest, jwt?: string): Pro
 export const login = async (loginData: LoginRequest): Promise<LoginResponse> => {
   try {
     const response = await apiRequest<LoginResponse>(
-      '/api/auth/login',
+      `${API_CONFIG.AUTH_ENDPOINT}/login`,
       {
         method: 'POST',
         body: JSON.stringify({
@@ -150,7 +150,7 @@ export const login = async (loginData: LoginRequest): Promise<LoginResponse> => 
 export const refreshAccessToken = async (refreshData: RefreshTokenRequest): Promise<RefreshTokenResponse> => {
   try {
     const response = await apiRequest<RefreshTokenResponse>(
-      '/api/auth/refresh',
+      `${API_CONFIG.AUTH_ENDPOINT}/refresh`,
       {
         method: 'POST',
         body: JSON.stringify({
@@ -191,7 +191,7 @@ export const logout = async (accessToken?: string, userId?: number): Promise<str
     }
 
     const response = await apiRequest<string>(
-      '/api/auth/logout',
+      `${API_CONFIG.AUTH_ENDPOINT}/logout`,
       {
         method: 'POST',
         jwt: token,

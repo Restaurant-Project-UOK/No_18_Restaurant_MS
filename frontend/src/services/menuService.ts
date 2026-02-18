@@ -74,7 +74,7 @@ const createMenuItemWithImage = async (
     if (!token) throw new Error('Unauthorized: No access token');
 
     return await apiRequest<MenuItem>(
-      `${API_CONFIG.ADMIN_ENDPOINT}/menu`,
+      `${API_CONFIG.ADMIN_ENDPOINT}/menu/with-image`,
       {
         method: 'POST',
         jwt: token,

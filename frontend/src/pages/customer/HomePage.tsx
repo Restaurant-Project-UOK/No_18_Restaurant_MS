@@ -46,7 +46,7 @@ export default function CustomerHomePage() {
   const customerOrders = getOrdersByCustomer(user?.id || '');
 
   const handleAddToCart = async (menuItem: MenuItem) => {
-    await addToCart(menuItem as never, 1);
+    await addToCart(menuItem, 1);
   };
 
   const handleProfileClick = () => {

@@ -1,4 +1,4 @@
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 // ============================================
 // TYPES & INTERFACES
@@ -59,12 +59,15 @@ export const createPayment = async (
   try {
     // Backend returns a plain string (PayPal URL), not JSON
     const approvalUrl = await apiRequest<string>(
-      '/payments/create',
+      `${API_CONFIG.PAYMENT_CREATE_ENDPOINT}/create`,
       {
         method: 'POST',
         body: JSON.stringify({
-          orderId: paymentData.orderId,
-          amount: paymentData.amount,
+          total: paymentData.amount,
+          currency: 'USD',
+          method: 'paypal',
+          intent: 'sale',
+          description: `Order #${paymentData.orderId}`,
         }),
       }
     );
@@ -97,7 +100,7 @@ const getPaymentDetails = async (
     }
 
     const response = await apiRequest<PaymentDetails>(
-      `/api/payments/${paymentId}`,
+      `${API_CONFIG.PAYMENT_ENDPOINT}/${paymentId}`,
       {
         jwt: token,
       }
@@ -133,7 +136,7 @@ const updatePaymentStatus = async (
     }
 
     const response = await apiRequest<PaymentDetails>(
-      `/api/payments/${paymentId}`,
+      `${API_CONFIG.PAYMENT_ENDPOINT}/${paymentId}`,
       {
         method: 'PATCH',
         jwt: token,
