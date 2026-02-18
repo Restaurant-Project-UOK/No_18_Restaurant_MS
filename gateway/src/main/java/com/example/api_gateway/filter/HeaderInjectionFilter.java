@@ -24,7 +24,7 @@ public class HeaderInjectionFilter implements GlobalFilter, Ordered {
         String roleName = exchange.getAttribute(JwtAuthenticationFilter.ROLE_NAME_ATTRIBUTE);
         String correlationId = exchange.getAttribute(CorrelationIdFilter.CORRELATION_ID_ATTRIBUTE);
 
-        // Only userId and roleName are required; tableId is optional (Admin/Kitchen may not have it)
+        // If attributes are missing, this is a public path - skip header injection
         if (userId == null || roleName == null) {
             log.debug("Skipping header injection - missing required attributes (userId or roleName)");
             return chain.filter(exchange);
@@ -41,7 +41,6 @@ public class HeaderInjectionFilter implements GlobalFilter, Ordered {
         if (tableId != null) {
             requestBuilder.header("X-Table-Id", tableId.toString());
         }
-
         ServerHttpRequest mutatedRequest = requestBuilder.build();
 
         log.debug("Injected headers - X-User-Id: {}, X-Table-Id: {}, X-Role: {}",
@@ -55,4 +54,3 @@ public class HeaderInjectionFilter implements GlobalFilter, Ordered {
         return 4; // Execute after JwtAuthenticationFilter
     }
 }
-

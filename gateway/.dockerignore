@@ -1,52 +1,33 @@
-# Maven
+# Build artifacts
 target/
-.mvn/
-!.mvn/wrapper/maven-wrapper.jar
+!target/*.jar
 
-# IDE
+# IDE files
 .idea/
+.vscode/
 *.iml
 *.iws
 *.ipr
-.vscode/
-.settings/
-.classpath
-.project
-.factorypath
-
-# Environment files (never include secrets in image)
-.env
-.env.local
-.env.*.local
-.env.development
-.env.production
-
-# Logs
-*.log
-logs/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.tmp
-*.temp
-*.swp
-*.swo
-*~
 
 # Git
 .git/
 .gitignore
-.gitattributes
+
 
 # Documentation
-README.md
 *.md
+HELP.md
+README.md
+ARCHITECTURE_DIAGRAM.md
+FIX_CATEGORY_404_ERROR.md
+GATEWAY_IMPLEMENTATION_GUIDE.md
+IMPLEMENTATION_SUMMARY.md
+QUICK_START.md
 
-# Docker
-Dockerfile
-.dockerignore
-docker-compose.yml
+# Test
+src/test/
+
+# Misc
+.DS_Store
+*.log
 
