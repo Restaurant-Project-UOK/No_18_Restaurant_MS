@@ -46,13 +46,67 @@ export const getApiUrl = (endpoint: string): string => {
 };
 
 /**
+ * Check if a JWT token is expired (or about to expire within buffer seconds)
+ */
+const isTokenExpired = (token: string, bufferSeconds = 30): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp;
+    if (!exp) return false; // No expiry claim — assume valid
+    return Date.now() >= (exp - bufferSeconds) * 1000;
+  } catch {
+    return false; // If we can't decode, let the server decide
+  }
+};
+
+/**
+ * Proactively refresh the access token if it is expired or about to expire.
+ * Returns the new token, or the original token if no refresh was needed.
+ */
+const ensureFreshToken = async (token: string): Promise<string> => {
+  if (!isTokenExpired(token)) return token;
+
+  const storedRefreshToken = getRefreshToken();
+  if (!storedRefreshToken) return token; // No refresh token — use as-is
+
+  try {
+    console.log('[apiRequest] Token expired/expiring, proactively refreshing...');
+    const refreshResponse = await fetch(getApiUrl(`${API_CONFIG.AUTH_ENDPOINT}/refresh`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: storedRefreshToken }),
+    });
+
+    if (refreshResponse.ok) {
+      const data = await refreshResponse.json();
+      setAccessToken(data.accessToken);
+      if (data.refreshToken) {
+        setRefreshToken(data.refreshToken);
+      }
+      console.log('[apiRequest] Proactive token refresh successful');
+      return data.accessToken;
+    }
+  } catch (e) {
+    console.warn('[apiRequest] Proactive refresh failed, proceeding with old token', e);
+  }
+
+  return token; // Fall through — the 401 retry handler will catch it
+};
+
+/**
  * API request helper with automatic JWT handling
  */
 export const apiRequest = async <T = Record<string, unknown>>(
   endpoint: string,
   options: RequestInit & { jwt?: string; _isRetry?: boolean } = {}
 ): Promise<T> => {
-  const { jwt, _isRetry, ...fetchOptions } = options;
+  const { jwt: rawJwt, _isRetry, ...fetchOptions } = options;
+
+  // Proactively refresh expired tokens before making the request
+  let jwt = rawJwt;
+  if (jwt && !_isRetry) {
+    jwt = await ensureFreshToken(jwt);
+  }
 
   const headers: Record<string, string> = {
     ...(fetchOptions.headers as Record<string, string> || {}),

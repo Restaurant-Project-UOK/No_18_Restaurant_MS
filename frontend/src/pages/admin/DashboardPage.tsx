@@ -445,10 +445,10 @@ export default function AdminDashboardPage() {
                 <h3 className="text-xl font-bold mb-4 text-white">Recent Orders</h3>
                 <div className="space-y-3">
                   {orders.slice(0, 5).map((order) => (
-                    <div key={order.id} className="flex items-center justify-between pb-3 border-b border-brand-border">
+                    <div key={String(order.id)} className="flex items-center justify-between pb-3 border-b border-brand-border">
                       <div>
-                        <p className="font-semibold text-white">{order.customerName}</p>
-                        <p className="text-sm text-gray-500">{order.items.length} items</p>
+                        <p className="font-semibold text-white">{order.customerName || (order.userId ? `User #${order.userId}` : `Table #${order.tableId || '-'}`)}</p>
+                        <p className="text-sm text-gray-500">{(order.items || []).length} items</p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-white">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</p>
@@ -699,15 +699,15 @@ export default function AdminDashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-brand-border">
                   {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-brand-darker/50 transition-colors">
-                      <td className="px-6 py-4 text-sm text-gray-300 font-mono">#{order.id.slice(-6)}</td>
-                      <td className="px-6 py-4 text-sm text-white">{order.customerName}</td>
-                      <td className="px-6 py-4 text-sm text-gray-400">{order.items.length} items</td>
+                    <tr key={String(order.id)} className="hover:bg-brand-darker/50 transition-colors">
+                      <td className="px-6 py-4 text-sm text-gray-300 font-mono">#{String(order.id).slice(-6)}</td>
+                      <td className="px-6 py-4 text-sm text-white">{order.customerName || (order.userId ? `User #${order.userId}` : `Table #${order.tableId || '-'}`)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-400">{(order.items || []).length} items</td>
                       <td className="px-6 py-4 text-right text-sm font-semibold text-brand-primary">${(order.totalAmount ?? order.totalPrice ?? 0).toFixed(2)}</td>
                       <td className="px-6 py-4">
                         <select
                           value={order.status}
-                          onChange={(e) => updateOrderStatusAPI(order.id, e.target.value as OrderStatus)}
+                          onChange={(e) => updateOrderStatusAPI(String(order.id), e.target.value as OrderStatus)}
                           className="px-3 py-1 bg-brand-darker border border-brand-border rounded-lg text-sm text-white focus:outline-none focus:border-brand-primary"
                         >
                           {Object.values(OrderStatus).map((status) => (
@@ -833,28 +833,30 @@ export default function AdminDashboardPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {staffList.map((staff) => (
-                  <div key={staff.id} className="card">
+                  <div key={String(staff.id)} className="card">
                     <div className="mb-3">
-                      <p className="text-lg font-bold text-white">{staff.name}</p>
+                      <p className="text-lg font-bold text-white">{staff.name || staff.profile?.fullName || staff.fullName || 'No Name'}</p>
                       <p className="text-sm text-gray-400">{staff.email}</p>
                     </div>
                     <div className="space-y-2 mb-4 text-sm">
                       <p className="text-gray-300">
                         <span className="font-medium">Role:</span>
                         <span className="flex items-center gap-1 ml-1 inline-flex">
-                          {staff.role === 2 ? '👨‍💼 Admin' : staff.role === 3 ? '👨‍🍳 Kitchen' : '🤵 Waiter'}
+                          {staff.role === 1 ? '👤 Customer' : staff.role === 2 ? '👨‍💼 Admin' : staff.role === 3 ? '👨‍🍳 Kitchen' : staff.role === 4 ? '🤵 Waiter' : `Role ${staff.role}`}
                         </span>
                       </p>
-                      <p className="text-gray-300"><span className="font-medium">Phone:</span> {staff.phone}</p>
-                      <p className="text-gray-300">
-                        <span className="font-medium">Status:</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ml-1 ${(staff.status as string).toLowerCase() === 'active' ? 'bg-green-900/30 text-green-400' :
-                          (staff.status as string).toLowerCase() === 'inactive' ? 'bg-gray-900/30 text-gray-400' :
-                            'bg-yellow-900/30 text-yellow-400'
-                          }`}>
-                          {staff.status}
-                        </span>
-                      </p>
+                      <p className="text-gray-300"><span className="font-medium">Phone:</span> {staff.phone || staff.profile?.phone || 'N/A'}</p>
+                      {staff.status && (
+                        <p className="text-gray-300">
+                          <span className="font-medium">Status:</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ml-1 ${(staff.status as string).toLowerCase() === 'active' ? 'bg-green-900/30 text-green-400' :
+                            (staff.status as string).toLowerCase() === 'inactive' ? 'bg-gray-900/30 text-gray-400' :
+                              'bg-yellow-900/30 text-yellow-400'
+                            }`}>
+                            {staff.status}
+                          </span>
+                        </p>
+                      )}
                     </div>
                     <button onClick={() => handleEditStaff(staff)} className="btn-primary w-full text-sm flex items-center justify-center gap-1">
                       <MdEdit /> Edit
@@ -978,7 +980,7 @@ export default function AdminDashboardPage() {
 
               <div className="space-y-4">
                 <div>
-                  <p className="text-lg font-semibold text-white mb-1">{editingStaff.name}</p>
+                  <p className="text-lg font-semibold text-white mb-1">{editingStaff.name || editingStaff.profile?.fullName || 'No Name'}</p>
                   <p className="text-sm text-gray-400">{editingStaff.email}</p>
                 </div>
 

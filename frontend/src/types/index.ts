@@ -137,15 +137,26 @@ export enum TableStatus {
 // STAFF & KITCHEN
 // ============================================
 
+export interface UserProfile {
+  fullName?: string;
+  phone?: string;
+  address?: string;
+}
+
 export interface Staff {
   id: string;
+  /** Display name — mapped from backend profile.fullName, fullName, or name */
   name: string;
+  /** Backend field: fullName (may be top-level or inside profile) */
+  fullName?: string;
   email: string;
   role: UserRole;
-  phone: string;
+  phone?: string;
+  /** Backend nested profile object — can be null */
+  profile?: UserProfile | null;
   shiftStart?: string;
   shiftEnd?: string;
-  status: 'active' | 'inactive' | 'on-break';
+  status?: 'active' | 'inactive' | 'on-break';
 }
 
 export interface KitchenTicket {

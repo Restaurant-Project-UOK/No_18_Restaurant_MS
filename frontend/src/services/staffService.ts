@@ -13,10 +13,29 @@ export const staffService = {
     getAllStaff: async (accessToken?: string): Promise<Staff[]> => {
         try {
             const token = accessToken || getAccessToken();
-            return await apiRequest<Staff[]>(
+            const users = await apiRequest<Array<{
+                id: number;
+                email: string;
+                role: number;
+                fullName?: string;
+                name?: string;
+                phone?: string;
+                profile?: { fullName?: string; phone?: string; address?: string } | null;
+            }>>(
                 `${API_CONFIG.ADMIN_ENDPOINT}/users`,
                 { jwt: token || undefined }
             );
+            // Map backend User shape → Staff shape
+            // Name & phone can be at top-level OR nested inside profile (which can be null)
+            return users.map((u) => ({
+                id: String(u.id),
+                name: u.profile?.fullName || u.fullName || u.name || 'No Name',
+                fullName: u.profile?.fullName || u.fullName,
+                email: u.email,
+                role: u.role,
+                phone: u.profile?.phone || u.phone,
+                profile: u.profile || null,
+            })) as Staff[];
         } catch (error) {
             console.error('[staffService] Failed to fetch staff:', error);
             throw error;
