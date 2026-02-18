@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: String(profile.id),
           email: profile.email,
           name: profile.fullName,
-          role: profile.role,
+          role: userRole, // Use role from JWT as ProfileDto doesn't include it
           phone: profile.phone,
           address: profile.address,
           createdAt: profile.createdAt || new Date().toISOString(),
