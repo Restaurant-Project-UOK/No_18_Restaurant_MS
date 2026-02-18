@@ -21,21 +21,28 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const response = await login(email, password);
 
-      // Redirect based on role, preserving tableId for customers
-      if (email === 'admin@restaurant.com') {
+      // The user object is now reconstructed from JWT in AuthContext.login
+      // but we might need to wait for state to update or use the response from login if it returns the user.
+      // AuthContext.login usually updates the 'user' state.
+      // Actually, my previous refactor of AuthContext.login returns the decoded user.
+
+      // Let's check user role and redirect
+      const role = response.role; // Login now returns the user object with role
+
+      if (role === 2) { // ADMIN
         navigate('/admin');
-      } else if (email === 'kitchen@restaurant.com') {
+      } else if (role === 3) { // KITCHEN
         navigate('/kitchen');
-      } else if (email === 'waiter@restaurant.com') {
+      } else if (role === 4) { // WAITER
         navigate('/waiter');
       } else {
         // Customer redirect - preserve tableId if present
         navigate(tableId ? `/customer?tableId=${tableId}` : '/customer');
       }
-    } catch {
-      setError('Invalid email or password');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -57,144 +64,144 @@ export default function LoginPage() {
 
           {/* Main Content - Centered Form */}
           <form onSubmit={handleLogin} className="card space-y-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-white mb-6">Staff Login</h2>
-                  
-                  {error && (
-                    <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300 text-sm mb-6">
-                      {error}
-                    </div>
-                  )}
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">Staff Login</h2>
 
-                  <div className="space-y-5">
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-semibold mb-2 text-gray-300">
-                        Email Address
-                      </label>
-                      <input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary transition-colors"
-                        placeholder="staff@restaurant.com"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="password" className="block text-sm font-semibold mb-2 text-gray-300">
-                        Password
-                      </label>
-                      <input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary transition-colors"
-                        placeholder="••••••••"
-                        required
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full py-3 px-4 bg-brand-primary hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-lg mt-2"
-                    >
-                      <MdLogin className="text-xl" />
-                      {loading ? 'Signing In...' : 'Sign In'}
-                    </button>
-                  </div>
+              {error && (
+                <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300 text-sm mb-6">
+                  {error}
                 </div>
-              </form>
+              )}
+
+              <div className="space-y-5">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-semibold mb-2 text-gray-300">
+                    Email Address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary transition-colors"
+                    placeholder="staff@restaurant.com"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="block text-sm font-semibold mb-2 text-gray-300">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-primary transition-colors"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 px-4 bg-brand-primary hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-lg mt-2"
+                >
+                  <MdLogin className="text-xl" />
+                  {loading ? 'Signing In...' : 'Sign In'}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       ) : (
         /* CUSTOMER LOGIN - MOBILE FIRST */
         <div className="w-full max-w-md">
-        {/* Logo/Header */}
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-brand-primary rounded-lg mb-4">
-            <MdRestaurant className="text-4xl text-white" />
-          </div>
-          <h1 className="text-4xl font-bold">Restaurant Pro</h1>
-          <p className="text-gray-400 mt-2">Customer Service</p>
-        </div>
-
-        {/* QR Code Access Info */}
-        {tableId && (
-          <div className="bg-brand-primary/20 border border-brand-primary rounded-lg p-4 mb-6 flex items-start gap-3">
-            <MdQrCode2 className="text-2xl text-brand-primary flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-brand-primary mb-1">QR Code Access</p>
-              <p className="text-xs text-gray-300">Table {tableId} - Sign in or create a new account to get started</p>
+          {/* Logo/Header */}
+          <div className="mb-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-brand-primary rounded-lg mb-4">
+              <MdRestaurant className="text-4xl text-white" />
             </div>
+            <h1 className="text-4xl font-bold">Restaurant Pro</h1>
+            <p className="text-gray-400 mt-2">Customer Service</p>
           </div>
-        )}
 
-        {/* Login Form */}
-        <form onSubmit={handleLogin} className="card space-y-6 mb-6">
-          {error && (
-            <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300 text-sm">
-              {error}
+          {/* QR Code Access Info */}
+          {tableId && (
+            <div className="bg-brand-primary/20 border border-brand-primary rounded-lg p-4 mb-6 flex items-start gap-3">
+              <MdQrCode2 className="text-2xl text-brand-primary flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-brand-primary mb-1">QR Code Access</p>
+                <p className="text-xs text-gray-300">Table {tableId} - Sign in or create a new account to get started</p>
+              </div>
             </div>
           )}
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-semibold mb-3 text-gray-300">
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="your@email.com"
-              required
-            />
-          </div>
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="card space-y-6 mb-6">
+            {error && (
+              <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-300 text-sm">
+                {error}
+              </div>
+            )}
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-semibold mb-3 text-gray-300">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              placeholder="••••••••"
-              required
-            />
-          </div>
+            <div>
+              <label htmlFor="email" className="block text-sm font-semibold mb-3 text-gray-300">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field"
+                placeholder="your@email.com"
+                required
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <MdLogin />
-            {loading ? 'Signing In...' : 'Sign In'}
-          </button>
-        </form>
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold mb-3 text-gray-300">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-field"
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
-        {/* Register Link - Only for Customer QR Access */}
-        {!isStaffLogin && (
-          <div className="text-center mb-8">
-            <p className="text-sm text-gray-400 mb-3">Don't have an account?</p>
             <button
-              onClick={() => navigate(`/register?tableId=${tableId}`)}
-              className="text-brand-primary hover:text-brand-primary/80 font-semibold transition-colors"
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Create Account
+              <MdLogin />
+              {loading ? 'Signing In...' : 'Sign In'}
             </button>
-          </div>
-        )}
+          </form>
+
+          {/* Register Link - Only for Customer QR Access */}
+          {!isStaffLogin && (
+            <div className="text-center mb-8">
+              <p className="text-sm text-gray-400 mb-3">Don't have an account?</p>
+              <button
+                onClick={() => navigate(`/register?tableId=${tableId}`)}
+                className="text-brand-primary hover:text-brand-primary/80 font-semibold transition-colors"
+              >
+                Create Account
+              </button>
+            </div>
+          )}
 
 
-      </div>
+        </div>
       )}
     </div>
   );

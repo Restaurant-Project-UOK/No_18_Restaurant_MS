@@ -6,7 +6,7 @@ import { profileService, UpdateProfileRequest } from '../services/profileService
 import { decodeToken } from '../utils/jwtUtils';
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string, tableId?: number) => Promise<void>;
+  login: (email: string, password: string, tableId?: number) => Promise<User>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
   updateProfile: (name: string, phone: string, address: string) => Promise<void>;
@@ -94,6 +94,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading: false,
         error: null,
       });
+
+      return user;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       setAuthState((prev) => ({
@@ -219,7 +221,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           provider: 1,
           phone,
         };
-        await authService.register(registerData);
+        await authService.register(registerData, authState.token || undefined);
 
         setAuthState((prev) => ({ ...prev, loading: false, error: null }));
       } catch (error) {

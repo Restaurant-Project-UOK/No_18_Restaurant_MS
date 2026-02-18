@@ -1,29 +1,59 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { Table, TableStatus } from '../types';
-import { MOCK_TABLES } from '../data/mockData';
+import { tableService } from '../services/tableService';
+import { useAuth } from './AuthContext';
 
 interface TableContextType {
   tables: Table[];
-  updateTableStatus: (tableId: string, status: TableStatus) => void;
+  loading: boolean;
+  error: string | null;
+  refreshTables: () => Promise<void>;
+  updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
   getTableById: (tableId: string) => Table | undefined;
   getAvailableTables: () => Table[];
-  occupyTable: (tableId: string, orderId: string) => void;
-  releaseTable: (tableId: string) => void;
+  occupyTable: (tableId: string, orderId: string) => Promise<void>;
+  releaseTable: (tableId: string) => Promise<void>;
 }
 
 const TableContext = createContext<TableContextType | undefined>(undefined);
 
 export const TableProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [tables, setTables] = useState<Table[]>(MOCK_TABLES);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { getJwtToken } = useAuth();
 
-  const updateTableStatus = useCallback((tableId: string, status: TableStatus) => {
-    setTables((prev) =>
-      prev.map((table) =>
-        table.id === tableId ? { ...table, status } : table
-      )
-    );
-  }, []);
+  const refreshTables = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const jwt = getJwtToken() || undefined;
+      const data = await tableService.getAllTables(jwt);
+      setTables(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch tables');
+    } finally {
+      setLoading(false);
+    }
+  }, [getJwtToken]);
+
+  useEffect(() => {
+    refreshTables();
+  }, [refreshTables]);
+
+  const updateTableStatus = useCallback(async (tableId: string, status: TableStatus) => {
+    try {
+      const jwt = getJwtToken() || undefined;
+      const updatedTable = await tableService.updateTableStatus(tableId, status, jwt);
+      setTables((prev) =>
+        prev.map((table) => (table.id === tableId ? updatedTable : table))
+      );
+    } catch (err) {
+      console.error('Failed to update table status:', err);
+      throw err;
+    }
+  }, [getJwtToken]);
 
   const getTableById = useCallback(
     (tableId: string) => {
@@ -36,36 +66,42 @@ export const TableProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return tables.filter((table) => table.status === TableStatus.AVAILABLE);
   }, [tables]);
 
-  const occupyTable = useCallback((tableId: string, orderId: string) => {
+  const occupyTable = useCallback(async (tableId: string, orderId: string) => {
+    // Note: This logic might need a more specific API endpoint depending on backend
+    await updateTableStatus(tableId, TableStatus.OCCUPIED);
     setTables((prev) =>
       prev.map((table) =>
         table.id === tableId
-          ? { ...table, status: TableStatus.OCCUPIED, currentOrderId: orderId, occupiedAt: new Date().toISOString() }
+          ? { ...table, currentOrderId: orderId, occupiedAt: new Date().toISOString() }
           : table
       )
     );
-  }, []);
+  }, [updateTableStatus]);
 
-  const releaseTable = useCallback((tableId: string) => {
+  const releaseTable = useCallback(async (tableId: string) => {
+    await updateTableStatus(tableId, TableStatus.CLEANING);
     setTables((prev) =>
       prev.map((table) =>
         table.id === tableId
-          ? { ...table, status: TableStatus.CLEANING, currentOrderId: undefined, occupiedAt: undefined }
+          ? { ...table, currentOrderId: undefined, occupiedAt: undefined }
           : table
       )
     );
-  }, []);
+  }, [updateTableStatus]);
 
   const value = useMemo(
     () => ({
       tables,
+      loading,
+      error,
+      refreshTables,
       updateTableStatus,
       getTableById,
       getAvailableTables,
       occupyTable,
       releaseTable,
     }),
-    [tables, updateTableStatus, getTableById, getAvailableTables, occupyTable, releaseTable]
+    [tables, loading, error, refreshTables, updateTableStatus, getTableById, getAvailableTables, occupyTable, releaseTable]
   );
 
   return (
@@ -82,4 +118,3 @@ export const useTables = () => {
   }
   return context;
 };
-

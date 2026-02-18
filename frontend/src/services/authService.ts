@@ -62,12 +62,13 @@ export interface UserProfile {
  * @param registerData - Registration data
  * @returns Success message string
  */
-export const register = async (registerData: RegisterRequest): Promise<RegisterResponse> => {
+export const register = async (registerData: RegisterRequest, jwt?: string): Promise<RegisterResponse> => {
   try {
     const response = await apiRequest<string>(
       '/api/auth/register',
       {
         method: 'POST',
+        jwt: jwt,
         body: JSON.stringify({
           fullName: registerData.fullName,
           email: registerData.email,

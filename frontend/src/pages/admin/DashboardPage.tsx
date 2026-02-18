@@ -5,18 +5,18 @@ import { useOrders } from '../../context/OrderContext';
 import { useMenu } from '../../context/MenuContext';
 import { useTables } from '../../context/TableContext';
 import { OrderStatus, UserRole, Staff, MenuItem } from '../../types';
-import { MOCK_STAFF } from '../../data/mockData';
 import { MdDashboard, MdReceiptLong, MdPeople, MdRestaurant, MdChair, MdEdit, MdPerson, MdClose, MdSave, MdShowChart, MdTrendingUp, MdAccessTime, MdHealthAndSafety, MdCheckCircle, MdWarning, MdError, MdAdd, MdDelete, MdImage } from 'react-icons/md';
 import { analyticsService, AnalyticsSummary, TopItem, DailyForecast, HourlyForecast, HealthLog } from '../../services/analyticsService';
+import { staffService } from '../../services/staffService';
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user, addStaff, getJwtToken } = useAuth();
-  const { orders, updateOrderStatus } = useOrders();
-  const { menuItems, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService } = useMenu();
-  const { tables } = useTables();
+  const { orders, updateOrderStatus, refreshOrders } = useOrders();
+  const { menuItems, updateMenuItem, createMenuItem, deleteMenuItem: deleteMenuItemService, refreshMenuData } = useMenu();
+  const { tables, refreshTables } = useTables();
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'staff' | 'menu' | 'tables' | 'analytics'>('overview');
-  
+
   // Analytics state
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
@@ -24,7 +24,7 @@ export default function AdminDashboardPage() {
   const [dailyForecast, setDailyForecast] = useState<DailyForecast[]>([]);
   const [hourlyForecast, setHourlyForecast] = useState<HourlyForecast[]>([]);
   const [healthLogs, setHealthLogs] = useState<HealthLog[]>([]);
-  
+
   // Staff form state
   const [staffForm, setStaffForm] = useState({
     name: '',
@@ -36,15 +36,45 @@ export default function AdminDashboardPage() {
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffError, setStaffError] = useState<string | null>(null);
   const [staffSuccess, setStaffSuccess] = useState<string | null>(null);
-  
-  // Staff edit state
+
+  // Staff list state
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
-  const [staffList, setStaffList] = useState<Staff[]>(MOCK_STAFF);
-  
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [isStaffListLoading, setIsStaffListLoading] = useState(false);
+
+  // Load staff data
+  useEffect(() => {
+    if (activeTab === 'staff') {
+      loadStaffData();
+    }
+  }, [activeTab]);
+
+  const loadStaffData = async () => {
+    setIsStaffListLoading(true);
+    try {
+      const jwt = getJwtToken() || undefined;
+      const data = await staffService.getAllStaff(jwt);
+      setStaffList(data);
+    } catch (error) {
+      console.error('Failed to load staff:', error);
+    } finally {
+      setIsStaffListLoading(false);
+    }
+  };
+
+  // Refresh all data on mount or tab change
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      refreshOrders();
+      refreshMenuData();
+      refreshTables();
+    }
+  }, [activeTab, refreshOrders, refreshMenuData, refreshTables]);
+
   // Menu edit state
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
   const [menuEditForm, setMenuEditForm] = useState<Partial<MenuItem>>({});
-  
+
   // Menu add state
   const [showAddMenuModal, setShowAddMenuModal] = useState(false);
   const [newMenuForm, setNewMenuForm] = useState({
@@ -70,7 +100,7 @@ export default function AdminDashboardPage() {
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!staffForm.name.trim() || !staffForm.email.trim() || !staffForm.phone.trim() || !staffForm.password.trim() || !staffForm.role) {
       setStaffError('All fields are required');
@@ -99,7 +129,7 @@ export default function AdminDashboardPage() {
         parseInt(staffForm.role) as UserRole,
         staffForm.phone
       );
-      
+
       // Reset form
       setStaffForm({ name: '', email: '', phone: '', password: '', role: '' });
       setStaffSuccess('Staff member added successfully! They can now log in.');
@@ -144,10 +174,10 @@ export default function AdminDashboardPage() {
 
   const handleSaveMenuItem = () => {
     if (!editingMenuItem) return;
-    
+
     // Update the menu item in context
     updateMenuItem(editingMenuItem.id, menuEditForm);
-    
+
     setEditingMenuItem(null);
     setMenuEditForm({});
   };
@@ -206,7 +236,7 @@ export default function AdminDashboardPage() {
 
   const handleAddMenuItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!newMenuForm.name.trim() || !newMenuForm.price || !selectedImage) {
       setMenuActionError('Please fill in all required fields and select an image');
@@ -231,7 +261,7 @@ export default function AdminDashboardPage() {
 
       // Prepare FormData
       const formData = new FormData();
-      
+
       const menuItemData = {
         name: newMenuForm.name.trim(),
         description: newMenuForm.description.trim(),
@@ -248,9 +278,9 @@ export default function AdminDashboardPage() {
 
       // Create menu item
       await createMenuItem(formData, jwt);
-      
+
       setMenuActionSuccess('Menu item added successfully!');
-      
+
       // Close modal after 1.5 seconds
       setTimeout(() => {
         handleCloseAddMenu();
@@ -277,9 +307,9 @@ export default function AdminDashboardPage() {
       }
 
       await deleteMenuItemService(itemId, jwt);
-      
+
       setMenuActionSuccess(`"${itemName}" deleted successfully!`);
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setMenuActionSuccess(null);
@@ -311,7 +341,7 @@ export default function AdminDashboardPage() {
         analyticsService.getHourlyForecast(),
         analyticsService.getHealthLogs(),
       ]);
-      
+
       setAnalyticsSummary(summary);
       setTopItems(items);
       setDailyForecast(daily);
@@ -355,11 +385,10 @@ export default function AdminDashboardPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-4 px-2 border-b-2 transition-colors capitalize font-medium flex items-center gap-2 ${
-                activeTab === tab
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
+              className={`py-4 px-2 border-b-2 transition-colors capitalize font-medium flex items-center gap-2 ${activeTab === tab
+                ? 'border-brand-primary text-brand-primary'
+                : 'border-transparent text-gray-400 hover:text-white'
+                }`}
             >
               {tab === 'overview' && <><MdDashboard /> Overview</>}
               {tab === 'analytics' && <><MdShowChart /> Analytics</>}
@@ -414,13 +443,12 @@ export default function AdminDashboardPage() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-white">${order.totalPrice.toFixed(2)}</p>
-                        <p className={`text-xs font-medium ${
-                          order.status === OrderStatus.PENDING ? 'text-yellow-400' :
+                        <p className={`text-xs font-medium ${order.status === OrderStatus.PENDING ? 'text-yellow-400' :
                           order.status === OrderStatus.PREPARING ? 'text-blue-400' :
-                          'text-green-400'
-                        }`}>
-                        {order.status.toUpperCase()}
-                      </p>
+                            'text-green-400'
+                          }`}>
+                          {order.status.toUpperCase()}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -525,7 +553,7 @@ export default function AdminDashboardPage() {
                         const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
                         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                        
+
                         return (
                           <div key={index} className="flex items-center justify-between pb-3 border-b border-brand-border last:border-0">
                             <div>
@@ -553,19 +581,18 @@ export default function AdminDashboardPage() {
                         const hour12 = forecast.hour > 12 ? forecast.hour - 12 : forecast.hour;
                         const ampm = forecast.hour >= 12 ? 'PM' : 'AM';
                         const timeStr = `${hour12}:00 ${ampm}`;
-                        
+
                         // Determine if it's peak hours
-                        const isPeak = (forecast.hour >= 12 && forecast.hour <= 14) || 
-                                      (forecast.hour >= 18 && forecast.hour <= 20);
-                        
+                        const isPeak = (forecast.hour >= 12 && forecast.hour <= 14) ||
+                          (forecast.hour >= 18 && forecast.hour <= 20);
+
                         return (
                           <div key={index} className="flex items-center gap-3">
                             <div className="w-20 text-sm text-gray-400">{timeStr}</div>
                             <div className="flex-1 bg-brand-dark rounded-full h-6 overflow-hidden">
                               <div
-                                className={`h-full rounded-full flex items-center justify-end pr-2 ${
-                                  isPeak ? 'bg-brand-primary' : 'bg-blue-600'
-                                }`}
+                                className={`h-full rounded-full flex items-center justify-end pr-2 ${isPeak ? 'bg-brand-primary' : 'bg-blue-600'
+                                  }`}
                                 style={{ width: `${(forecast.predictedOrders / 25) * 100}%` }}
                               >
                                 <span className="text-xs font-semibold text-white">
@@ -591,7 +618,7 @@ export default function AdminDashboardPage() {
                       const logTime = new Date(log.timestamp);
                       const timeAgo = Math.floor((Date.now() - logTime.getTime()) / 60000);
                       const timeStr = timeAgo < 1 ? 'Just now' : `${timeAgo} min ago`;
-                      
+
                       return (
                         <div key={index} className="flex items-start gap-3 pb-3 border-b border-brand-border last:border-0">
                           <div className="mt-1">
@@ -667,13 +694,13 @@ export default function AdminDashboardPage() {
         {activeTab === 'staff' && (
           <div>
             <h2 className="section-title">Staff Management</h2>
-            
+
             {/* Add Staff Form */}
             <div className="card mb-8">
               <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
                 <MdPerson /> Add New Staff Member
               </h3>
-              
+
               {staffError && (
                 <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
                   {staffError}
@@ -759,26 +786,45 @@ export default function AdminDashboardPage() {
 
             {/* Staff List */}
             <h3 className="text-xl font-bold mb-4 text-white">Current Staff</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {staffList.map((staff) => (
-                <div key={staff.id} className="card">
-                  <div className="mb-3">
-                    <p className="text-lg font-bold text-white">{staff.name}</p>
-                    <p className="text-sm text-gray-400">{staff.email}</p>
+            {isStaffListLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+              </div>
+            ) : staffList.length === 0 ? (
+              <p className="text-gray-400 text-center py-10 bg-brand-darker rounded-lg border border-brand-border">No staff members found.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {staffList.map((staff) => (
+                  <div key={staff.id} className="card">
+                    <div className="mb-3">
+                      <p className="text-lg font-bold text-white">{staff.name}</p>
+                      <p className="text-sm text-gray-400">{staff.email}</p>
+                    </div>
+                    <div className="space-y-2 mb-4 text-sm">
+                      <p className="text-gray-300">
+                        <span className="font-medium">Role:</span>
+                        <span className="flex items-center gap-1 ml-1 inline-flex">
+                          {staff.role === 2 ? '👨‍💼 Admin' : staff.role === 3 ? '👨‍🍳 Kitchen' : '🤵 Waiter'}
+                        </span>
+                      </p>
+                      <p className="text-gray-300"><span className="font-medium">Phone:</span> {staff.phone}</p>
+                      <p className="text-gray-300">
+                        <span className="font-medium">Status:</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ml-1 ${(staff.status as string).toLowerCase() === 'active' ? 'bg-green-900/30 text-green-400' :
+                            (staff.status as string).toLowerCase() === 'inactive' ? 'bg-gray-900/30 text-gray-400' :
+                              'bg-yellow-900/30 text-yellow-400'
+                          }`}>
+                          {staff.status}
+                        </span>
+                      </p>
+                    </div>
+                    <button onClick={() => handleEditStaff(staff)} className="btn-primary w-full text-sm flex items-center justify-center gap-1">
+                      <MdEdit /> Edit
+                    </button>
                   </div>
-                  <div className="space-y-2 mb-4 text-sm">
-                    <p className="text-gray-300"><span className="font-medium">Role:</span> <span className="flex items-center gap-1 ml-1 inline-flex">{staff.role === 3 ? <>👨‍🍳 Kitchen</> : <><MdPerson /> Waiter</>}</span></p>
-                    <p className="text-gray-300"><span className="font-medium">Phone:</span> {staff.phone}</p>
-                    <p className="text-gray-300"><span className="font-medium">Status:</span> <span className={`px-2 py-0.5 rounded text-xs font-medium ml-1 ${
-                      staff.status === 'active' ? 'bg-green-900/30 text-green-400' : staff.status === 'inactive' ? 'bg-gray-900/30 text-gray-400' : 'bg-yellow-900/30 text-yellow-400'
-                    }`}>{staff.status}</span></p>
-                  </div>
-                  <button onClick={() => handleEditStaff(staff)} className="btn-primary w-full text-sm flex items-center justify-center gap-1">
-                    <MdEdit /> Edit
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -818,9 +864,8 @@ export default function AdminDashboardPage() {
                   <p className="text-sm text-gray-400 mb-3">{item.description}</p>
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-2xl font-bold text-brand-primary">${item.price.toFixed(2)}</p>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      item.available ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
-                    }`}>{item.available ? 'Available' : 'Out of Stock'}</span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${item.available ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+                      }`}>{item.available ? 'Available' : 'Out of Stock'}</span>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -852,21 +897,19 @@ export default function AdminDashboardPage() {
               {tables.map((table) => (
                 <div
                   key={table.id}
-                  className={`stat-card ${
-                    table.status === 'available'
-                      ? 'bg-green-900/20 border-green-700'
-                      : table.status === 'occupied'
-                        ? 'bg-red-900/20 border-red-700'
-                        : 'bg-yellow-900/20 border-yellow-700'
-                  }`}
+                  className={`stat-card ${table.status === 'available'
+                    ? 'bg-green-900/20 border-green-700'
+                    : table.status === 'occupied'
+                      ? 'bg-red-900/20 border-red-700'
+                      : 'bg-yellow-900/20 border-yellow-700'
+                    }`}
                 >
                   <p className="text-3xl font-bold mb-1">{table.tableNumber}</p>
                   <p className="text-sm text-gray-400 mb-2">Capacity: {table.capacity}</p>
-                  <p className={`text-xs font-semibold uppercase ${
-                    table.status === 'available' ? 'text-green-400' :
+                  <p className={`text-xs font-semibold uppercase ${table.status === 'available' ? 'text-green-400' :
                     table.status === 'occupied' ? 'text-red-400' :
-                    'text-yellow-400'
-                  }`}>
+                      'text-yellow-400'
+                    }`}>
                     {table.status}
                   </p>
                 </div>
@@ -886,7 +929,7 @@ export default function AdminDashboardPage() {
                 <MdClose className="text-xl" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <p className="text-lg font-semibold text-white mb-1">{editingStaff.name}</p>
@@ -898,31 +941,28 @@ export default function AdminDashboardPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleUpdateStaffStatus(editingStaff.id, 'active')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
-                      editingStaff.status === 'active'
-                        ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
-                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
-                    }`}
+                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'active'
+                      ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
+                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
+                      }`}
                   >
                     Active
                   </button>
                   <button
                     onClick={() => handleUpdateStaffStatus(editingStaff.id, 'inactive')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
-                      editingStaff.status === 'inactive'
-                        ? 'bg-gray-900/50 border-2 border-gray-600 text-gray-300'
-                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-gray-600'
-                    }`}
+                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'inactive'
+                      ? 'bg-gray-900/50 border-2 border-gray-600 text-gray-300'
+                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-gray-600'
+                      }`}
                   >
                     Inactive
                   </button>
                   <button
                     onClick={() => handleUpdateStaffStatus(editingStaff.id, 'on-break')}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
-                      editingStaff.status === 'on-break'
-                        ? 'bg-yellow-900/50 border-2 border-yellow-600 text-yellow-300'
-                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-yellow-600'
-                    }`}
+                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${editingStaff.status === 'on-break'
+                      ? 'bg-yellow-900/50 border-2 border-yellow-600 text-yellow-300'
+                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-yellow-600'
+                      }`}
                   >
                     On Break
                   </button>
@@ -949,7 +989,7 @@ export default function AdminDashboardPage() {
                 <MdClose className="text-xl" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1005,21 +1045,19 @@ export default function AdminDashboardPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleMenuEditChange('available', true)}
-                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
-                        menuEditForm.available
-                          ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
-                          : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
-                      }`}
+                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${menuEditForm.available
+                        ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
+                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
+                        }`}
                     >
                       Available
                     </button>
                     <button
                       onClick={() => handleMenuEditChange('available', false)}
-                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
-                        !menuEditForm.available
-                          ? 'bg-red-900/50 border-2 border-red-600 text-red-300'
-                          : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-red-600'
-                      }`}
+                      className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${!menuEditForm.available
+                        ? 'bg-red-900/50 border-2 border-red-600 text-red-300'
+                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-red-600'
+                        }`}
                     >
                       Out of Stock
                     </button>
@@ -1050,7 +1088,7 @@ export default function AdminDashboardPage() {
                 <MdClose className="text-xl" />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddMenuItem} className="space-y-4">
               {/* Success/Error Messages */}
               {menuActionSuccess && (
@@ -1173,11 +1211,10 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => setNewMenuForm({ ...newMenuForm, available: true })}
                     disabled={menuActionLoading}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${
-                      newMenuForm.available
-                        ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
-                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
-                    }`}
+                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${newMenuForm.available
+                      ? 'bg-green-900/50 border-2 border-green-600 text-green-300'
+                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-green-600'
+                      }`}
                   >
                     Available
                   </button>
@@ -1185,11 +1222,10 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => setNewMenuForm({ ...newMenuForm, available: false })}
                     disabled={menuActionLoading}
-                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${
-                      !newMenuForm.available
-                        ? 'bg-red-900/50 border-2 border-red-600 text-red-300'
-                        : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-red-600'
-                    }`}
+                    className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors disabled:opacity-50 ${!newMenuForm.available
+                      ? 'bg-red-900/50 border-2 border-red-600 text-red-300'
+                      : 'bg-brand-dark border border-brand-border text-gray-400 hover:border-red-600'
+                      }`}
                   >
                     Out of Stock
                   </button>

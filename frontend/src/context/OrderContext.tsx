@@ -1,8 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { Order, OrderStatus } from '../types';
-import { generateMockOrders } from '../data/mockData';
-import { initializeMockOrders } from '../services/kitchenService';
 import { orderService, CreateOrderRequest, TableOrdersResponse } from '../services/orderService';
 import { useAuth } from './AuthContext';
 
@@ -22,20 +20,35 @@ interface OrderContextType {
   getTableOrdersAPI: (tableNumber: number) => Promise<TableOrdersResponse>;
   loadingAPI: boolean;
   errorAPI: string | null;
+  refreshOrders: () => Promise<void>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [orders, setOrders] = useState<Order[]>(generateMockOrders());
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loadingAPI, setLoadingAPI] = useState(false);
   const [errorAPI, setErrorAPI] = useState<string | null>(null);
   const { getJwtToken } = useAuth();
 
-  // Sync orders with kitchen/waiter services whenever they change
+  const refreshOrders = useCallback(async () => {
+    setLoadingAPI(true);
+    setErrorAPI(null);
+    try {
+      const activeOrders = await orderService.getActiveOrders();
+      setOrders(activeOrders);
+    } catch (error) {
+      console.error('[OrderContext] Failed to load initial orders:', error);
+      setErrorAPI(error instanceof Error ? error.message : 'Failed to load orders');
+    } finally {
+      setLoadingAPI(false);
+    }
+  }, []);
+
+  // Load orders on mount
   useEffect(() => {
-    initializeMockOrders(orders);
-  }, [orders]);
+    refreshOrders();
+  }, [refreshOrders]);
 
   const addOrder = useCallback((order: Order) => {
     setOrders((prev) => [...prev, order]);
@@ -182,6 +195,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       getTableOrdersAPI,
       loadingAPI,
       errorAPI,
+      refreshOrders,
     }),
     [
       orders,
@@ -198,6 +212,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       getTableOrdersAPI,
       loadingAPI,
       errorAPI,
+      refreshOrders,
     ]
   );
 
@@ -215,4 +230,3 @@ export const useOrders = () => {
   }
   return context;
 };
-

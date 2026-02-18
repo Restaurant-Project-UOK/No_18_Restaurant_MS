@@ -4,14 +4,14 @@
  */
 
 export const API_CONFIG = {
-  // Change this to your backend gateway URL
-  GATEWAY_BASE_URL: 'https://gateway-app.mangofield-91faac5e.southeastasia.azurecontainerapps.io',
-  // For local development, uncomment below:
-  // GATEWAY_BASE_URL: 'http://localhost:8000',
+  // Use environment variable if available, fallback to hosted gateway
+  GATEWAY_BASE_URL: import.meta.env.VITE_BASE_URL || 'https://gateway-app.mangofield-91faac5e.southeastasia.azurecontainerapps.io',
 
   // Service endpoints (relative to gateway)
   AUTH_ENDPOINT: '/api/auth',
   MENU_ENDPOINT: '/api/menu',
+  CATEGORIES_ENDPOINT: '/api/categories',
+  MEDIA_ENDPOINT: '/api/media',
   CART_ENDPOINT: '/api/cart',
   ORDERS_ENDPOINT: '/api/orders',
   ADMIN_ENDPOINT: '/api/admin',
@@ -38,9 +38,13 @@ export const apiRequest = async <T = Record<string, unknown>>(
   const { jwt, ...fetchOptions } = options;
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string> || {}),
   };
+
+  // Only set Content-Type to application/json if body is NOT FormData
+  if (!(fetchOptions.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   // Add JWT token if provided
   if (jwt) {
@@ -64,7 +68,7 @@ export const apiRequest = async <T = Record<string, unknown>>(
   }
 
   const url = getApiUrl(endpoint);
-  
+
   // Debug: Log the actual request being made
   console.log('[apiRequest] Making request:', {
     url,
