@@ -23,7 +23,7 @@ public class TokenResponseDto {
 
     private String accessToken;
     private String refreshToken;
-    private UserResponseDto user;
+    //private UserResponseDto user;
     
     @Builder.Default
     private String tokenType = "Bearer";
