@@ -185,7 +185,33 @@ const markOrderServed = async (
   orderId: string,
   accessToken?: string
 ): Promise<StatusUpdateResponse> => {
-  return updateOrderStatus(orderId, { status: OrderStatus.SERVED }, accessToken);
+  try {
+    const token = accessToken || getAccessToken();
+    if (!token) {
+      throw new Error('Unauthorized: No access token');
+    }
+
+    await apiRequest<Order>(
+      `${API_CONFIG.ORDERS_ENDPOINT}/${orderId}/SERVED`,
+      {
+        method: 'PATCH',
+        jwt: token,
+      }
+    );
+
+    console.log('[waiterService] Order marked as SERVED:', orderId);
+
+    return {
+      orderId,
+      status: OrderStatus.SERVED,
+      message: `Order marked as SERVED`,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to mark order as served';
+    console.error('[waiterService] Failed to mark order served:', message);
+    throw new Error(message);
+  }
 };
 
 // ============================================

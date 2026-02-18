@@ -207,7 +207,7 @@ export default function CustomerRegisterPage() {
         {/* Info Box */}
         <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
           <p className="text-blue-300 text-xs">
-            💡 <strong>Tip:</strong> Create an account to save your preferences and order history. You can only access this restaurant via QR code.
+            💡 <strong>Tip:</strong> Create an account to save your preferences and order history. You can only access **No 18 Restaurant** via QR code.
           </p>
         </div>
       </div>

@@ -192,8 +192,8 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-24 h-24 bg-brand-primary rounded-lg mb-6">
               <MdRestaurant className="text-5xl text-white" />
             </div>
-            <h1 className="text-5xl font-bold mb-2">Restaurant Pro</h1>
-            <p className="text-gray-400 text-lg">Staff Portal</p>
+            <h1 className="text-5xl font-bold mb-2 text-white">No 18 Restaurant</h1>
+            <p className="text-gray-400 text-lg">Colombo 07 - Staff Portal</p>
           </div>
 
           <form onSubmit={handleLogin} className="card space-y-6">
@@ -266,8 +266,8 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-20 h-20 bg-brand-primary rounded-lg mb-4">
               <MdRestaurant className="text-4xl text-white" />
             </div>
-            <h1 className="text-4xl font-bold">Restaurant Pro</h1>
-            <p className="text-gray-400 mt-2">Customer Service</p>
+            <h1 className="text-4xl font-bold text-white">No 18 Restaurant</h1>
+            <p className="text-gray-400 mt-2 text-lg">Colombo 07 - Customer Service</p>
           </div>
 
           {tableIdParam && (

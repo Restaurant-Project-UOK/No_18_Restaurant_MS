@@ -8,6 +8,7 @@ import { Order, OrderStatus, MenuItem } from '../../types';
 import { MdRestaurant, MdHistory, MdShoppingCart, MdPerson, MdCheckCircle, MdAdd, MdRemove, MdSearch, MdClose } from 'react-icons/md';
 import { getAccessToken } from '../../utils/cookieStorage';
 import { paymentService } from '../../services/paymentService';
+import { ChatbotWidget } from '../../components/ChatbotWidget';
 
 export default function CustomerHomePage() {
   const navigate = useNavigate();
@@ -20,7 +21,6 @@ export default function CustomerHomePage() {
   const [showOrderHistory, setShowOrderHistory] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'checkout' | 'confirmation'>('cart');
   const [checkoutData, setCheckoutData] = useState({
-    paymentMethod: 'card',
     specialRequests: '',
     tableNumber: '',
   });
@@ -99,6 +99,7 @@ export default function CustomerHomePage() {
 
   return (
     <div className="h-screen bg-brand-dark flex flex-col overflow-hidden">
+      <ChatbotWidget />
       {/* MOBILE HEADER - Fixed */}
       <div className="bg-brand-darker border-b border-brand-border px-4 py-3 flex-shrink-0">
         {/* Desktop/Tablet Header */}
@@ -106,7 +107,7 @@ export default function CustomerHomePage() {
           <div className="flex items-center gap-2">
             <MdRestaurant className="text-2xl text-brand-primary" />
             <div>
-              <h1 className="text-lg font-bold text-white">Menu</h1>
+              <h1 className="text-lg font-bold text-white">No 18 Restaurant</h1>
               <p className="text-xs text-gray-400">{user?.name}</p>
             </div>
           </div>
@@ -172,7 +173,7 @@ export default function CustomerHomePage() {
                 onClick={() => {
                   setShowCart(false);
                   setCheckoutStep('cart');
-                  setCheckoutData({ paymentMethod: 'card', specialRequests: '', tableNumber: '' });
+                  setCheckoutData({ specialRequests: '', tableNumber: '' });
                 }}
                 className="text-gray-400 hover:text-white text-2xl"
               >
@@ -191,7 +192,7 @@ export default function CustomerHomePage() {
                   onClick={() => {
                     setShowCart(false);
                     setCheckoutStep('cart');
-                    setCheckoutData({ paymentMethod: 'card', specialRequests: '', tableNumber: '' });
+                    setCheckoutData({ specialRequests: '', tableNumber: '' });
                   }}
                   className="w-full py-3 bg-brand-primary hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors"
                 >
@@ -281,19 +282,6 @@ export default function CustomerHomePage() {
                       />
                     </div>
 
-                    <div>
-                      <label htmlFor="paymentMeth" className="text-xs font-medium text-gray-300 block mb-2">Payment Method</label>
-                      <select
-                        id="paymentMeth"
-                        value={checkoutData.paymentMethod}
-                        onChange={(e) => setCheckoutData({ ...checkoutData, paymentMethod: e.target.value })}
-                        className="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-sm focus:outline-none focus:border-brand-primary"
-                      >
-                        <option value="card">Credit Card</option>
-                        <option value="cash">Cash</option>
-                        <option value="digital">Digital Wallet</option>
-                      </select>
-                    </div>
 
                     <div>
                       <label htmlFor="specrequests" className="text-xs font-medium text-gray-300 block mb-2">Special Requests</label>
@@ -356,8 +344,8 @@ export default function CustomerHomePage() {
                         ? 'bg-yellow-900/30 text-yellow-300'
                         : order.status === OrderStatus.PREPARING
                           ? 'bg-blue-900/30 text-blue-300'
-                          : order.status === OrderStatus.READY
-                            ? 'bg-green-900/30 text-green-300'
+                          : order.status === OrderStatus.SERVED
+                            ? 'bg-purple-900/30 text-purple-300'
                             : 'bg-gray-900/30 text-gray-300'
                         }`}>
                         {order.status.toUpperCase()}
@@ -396,7 +384,7 @@ export default function CustomerHomePage() {
                           disabled={loading}
                           className="px-4 py-1.5 bg-brand-primary hover:bg-orange-600 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
                         >
-                          Pay Now
+                          Pay to Order
                         </button>
                       )}
                     </div>

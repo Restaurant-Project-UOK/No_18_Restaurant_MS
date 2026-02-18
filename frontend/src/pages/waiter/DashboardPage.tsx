@@ -101,8 +101,9 @@ export default function WaiterDashboardPage() {
   const handleMarkAsServed = async (orderId: string) => {
     setServeLoading(orderId);
     try {
-      // Use OrderContext: PATCH /api/orders/{id}/status
-      await updateOrderStatusAPI(orderId, OrderStatus.SERVED);
+      const token = getAccessToken() || undefined;
+      // PATCH /api/orders/{id}/SERVED
+      await waiterService.markOrderServed(orderId, token);
       await loadReadyOrders();
     } catch (error) {
       console.error('Failed to mark as served:', error);

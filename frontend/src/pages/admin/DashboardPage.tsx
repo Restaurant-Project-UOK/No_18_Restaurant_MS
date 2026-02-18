@@ -282,7 +282,7 @@ export default function AdminDashboardPage() {
         allergens: [],
       };
 
-      formData.append('menuItem', JSON.stringify(menuItemData));
+      formData.append('menuItem', new Blob([JSON.stringify(menuItemData)], { type: 'application/json' }));
       formData.append('image', selectedImage);
 
       // Create menu item
