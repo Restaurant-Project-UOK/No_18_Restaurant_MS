@@ -1,45 +1,36 @@
 import { Table, TableStatus } from '../types';
-import { apiRequest, API_CONFIG } from '../config/api';
 
 /**
- * Table Service - Handles table management via Gateway
+ * Table Service - Handles table management
+ * Mocked because backend has no table endpoints.
  */
 export const tableService = {
     /**
      * GET /api/admin/tables
-     * Retrieves all tables (Admin/Staff only)
+     * Mock implementation
      */
-    getAllTables: async (accessToken?: string): Promise<Table[]> => {
-        try {
-            const token = accessToken || localStorage.getItem('auth_access_token');
-            return await apiRequest<Table[]>(
-                `${API_CONFIG.ADMIN_ENDPOINT}/tables`,
-                { jwt: token || undefined }
-            );
-        } catch (error) {
-            console.error('[tableService] Failed to fetch tables:', error);
-            throw error;
-        }
+    getAllTables: async (_accessToken?: string): Promise<Table[]> => {
+        // Return static tables 1-20
+        return Array.from({ length: 20 }, (_, i) => ({
+            id: String(i + 1),
+            tableNumber: i + 1,
+            status: TableStatus.AVAILABLE,
+            capacity: 4
+        }));
     },
 
     /**
      * PATCH /api/admin/tables/:id/status
-     * Updates table status
+     * Mock implementation
      */
-    updateTableStatus: async (tableId: string, status: TableStatus, accessToken?: string): Promise<Table> => {
-        try {
-            const token = accessToken || localStorage.getItem('auth_access_token');
-            return await apiRequest<Table>(
-                `${API_CONFIG.ADMIN_ENDPOINT}/tables/${tableId}/status`,
-                {
-                    method: 'PATCH',
-                    jwt: token || undefined,
-                    body: JSON.stringify({ status }),
-                }
-            );
-        } catch (error) {
-            console.error('[tableService] Failed to update table status:', error);
-            throw error;
-        }
+    updateTableStatus: async (tableId: string | number, status: TableStatus, _accessToken?: string): Promise<Table> => {
+        const idStr = String(tableId);
+        const num = Number(tableId);
+        return {
+            id: idStr,
+            tableNumber: num,
+            status: status,
+            capacity: 4
+        };
     },
 };
