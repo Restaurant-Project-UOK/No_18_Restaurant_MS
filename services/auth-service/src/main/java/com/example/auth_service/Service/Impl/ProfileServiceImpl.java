@@ -9,7 +9,9 @@ import com.example.auth_service.DTO.ProfileDto;
 import com.example.auth_service.Entity.*;
 import com.example.auth_service.Repository.*;
 import com.example.auth_service.Service.ProfileService;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class ProfileServiceImpl implements ProfileService {
 
@@ -23,12 +25,17 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Override
     public ProfileDto getProfile(Long userId) {
+        log.info("Fetching profile for userId: {}", userId);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Profile profile = profileRepository.findById(userId).orElse(null);
-        ProfileDto dto = new ProfileDto(user, profile);
-        //dto.setProvider(null); // hide provider if not needed
-        return dto;
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+        
+        // Use the association if available, else fetch from repo
+        Profile profile = user.getProfile();
+        if (profile == null) {
+            profile = profileRepository.findById(userId).orElse(null);
+        }
+        
+        return new ProfileDto(user, profile);
     }
 
 
@@ -36,22 +43,32 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional
     @Override
     public ProfileDto updateProfile(Long userId, ProfileDto dto) {
-        User user = userRepository.findById(userId).orElseThrow();
+        log.info("Attempting to update profile for userId: {}", userId);
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        Profile profile = profileRepository.findById(userId).orElseGet(() -> {
-            Profile newProfile = new Profile();
-            newProfile.setUser(user);
-            newProfile.setId(userId);
-            newProfile.setCreatedAt(LocalDateTime.now());
-            return newProfile;
-        });
+        // Check association first, then repo
+        Profile profile = user.getProfile();
+        if (profile == null) {
+            profile = profileRepository.findById(userId).orElse(null);
+        }
+
+        if (profile == null) {
+            log.info("No existing profile found for user {}, creating new one", userId);
+            profile = new Profile();
+            profile.setUser(user);
+            user.setProfile(profile);
+        }
 
         profile.setFullName(dto.getFullName());
         profile.setPhone(dto.getPhone());
         profile.setAddress(dto.getAddress());
         profile.setUpdatedAt(LocalDateTime.now());
 
-        profileRepository.save(profile);
-        return new ProfileDto(user, profile);
+        log.info("Saving profile for user: {}", user.getEmail());
+        Profile saved = profileRepository.save(profile);
+        
+        return new ProfileDto(user, saved);
     }
 }
