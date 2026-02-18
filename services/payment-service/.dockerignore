@@ -1,0 +1,10 @@
+target/
+
+# Generic exclusions
+.git
+.gitignore
+Dockerfile
+.dockerignore
+.github
+README.md
+HELP.md
