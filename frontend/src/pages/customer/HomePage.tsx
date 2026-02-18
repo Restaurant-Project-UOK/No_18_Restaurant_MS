@@ -363,7 +363,7 @@ export default function CustomerHomePage() {
                       </span>
                     </div>
                     <div className="space-y-1 mb-2 pb-2 border-b border-brand-border">
-                      {order.items.map((item: any) => (
+                      {order.items.map((item: { id: string; quantity: number; itemName?: string; menuItem?: { name: string } }) => (
                         <p key={item.id} className="text-xs text-gray-300">
                           {item.quantity}x {item.itemName || item.menuItem?.name || 'Item'}
                         </p>

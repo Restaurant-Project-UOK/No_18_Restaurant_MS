@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useOrders } from '../../context/OrderContext';
@@ -46,14 +46,7 @@ export default function AdminDashboardPage() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [isStaffListLoading, setIsStaffListLoading] = useState(false);
 
-  // Load staff data
-  useEffect(() => {
-    if (activeTab === 'staff') {
-      loadStaffData();
-    }
-  }, [activeTab]);
-
-  const loadStaffData = async () => {
+  const loadStaffData = useCallback(async () => {
     setIsStaffListLoading(true);
     try {
       const jwt = getJwtToken() || undefined;
@@ -64,7 +57,14 @@ export default function AdminDashboardPage() {
     } finally {
       setIsStaffListLoading(false);
     }
-  };
+  }, [getJwtToken]);
+
+  // Load staff data
+  useEffect(() => {
+    if (activeTab === 'staff') {
+      loadStaffData();
+    }
+  }, [activeTab, loadStaffData]);
 
   // Refresh data once when the overview tab is first loaded.
   // Context providers already load data on mount, so this is a one-time refresh
@@ -333,14 +333,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Load analytics data
-  useEffect(() => {
-    if (activeTab === 'analytics') {
-      loadAnalyticsData();
-    }
-  }, [activeTab, analyticsDates]);
-
-  const loadAnalyticsData = async () => {
+  const loadAnalyticsData = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
       const [summary, items, daily, hourly, health] = await Promise.all([
@@ -361,7 +354,14 @@ export default function AdminDashboardPage() {
     } finally {
       setAnalyticsLoading(false);
     }
-  };
+  }, [analyticsDates]);
+
+  // Load analytics data
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      loadAnalyticsData();
+    }
+  }, [activeTab, loadAnalyticsData]);
 
   const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount ?? order.totalPrice ?? 0), 0);
   const completedOrders = orders.filter((o) => o.status === OrderStatus.SERVED).length;

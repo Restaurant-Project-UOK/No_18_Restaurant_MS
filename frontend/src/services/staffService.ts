@@ -52,7 +52,7 @@ export const staffService = {
      * POST /api/admin/staff
      * Creates a new staff member (Admin only)
      */
-    createStaff: async (staffData: any, accessToken?: string): Promise<string> => {
+    createStaff: async (staffData: { fullName: string; email: string; password: string; role: number; phone: string }, accessToken?: string): Promise<string> => {
         try {
             const token = accessToken || getAccessToken();
             return await apiRequest<string>(

@@ -242,7 +242,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           role,
           phone,
         };
-        await staffService.createStaff(registerData, authState.token || undefined);
+        await staffService.createStaff(registerData, getAccessToken() || undefined);
 
         setAuthState((prev) => ({ ...prev, loading: false, error: null }));
       } catch (error) {
