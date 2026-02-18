@@ -474,10 +474,10 @@ export default function AdminDashboardPage() {
                       )}
                       <div>
                         <p className="font-semibold text-white">{item.name}</p>
-                        <p className="text-sm text-gray-500">${item.price.toFixed(2)}</p>
+                        <p className="text-sm text-gray-500">${item.price?.toFixed(2) || '0.00'}</p>
                       </div>
                     </div>
-                    <p className="font-bold text-brand-primary">{item.categories[0]?.name}</p>
+                    <p className="font-bold text-brand-primary">{item.categories?.[0]?.name || 'Uncategorized'}</p>
                   </div>
                 ))}
               </div>
@@ -900,10 +900,10 @@ export default function AdminDashboardPage() {
                     )}
                   </div>
                   <p className="text-lg font-bold text-white mb-1">{item.name}</p>
-                  <p className="text-sm text-gray-400 mb-1">{item.categories.map(c => c.name).join(', ')}</p>
+                  <p className="text-sm text-gray-400 mb-1">{item.categories?.map(c => c.name).join(', ') || 'No Category'}</p>
                   <p className="text-sm text-gray-500 mb-3 line-clamp-2">{item.description}</p>
                   <div className="flex items-center justify-between mb-4">
-                    <p className="text-2xl font-bold text-brand-primary">${item.price.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-brand-primary">${item.price?.toFixed(2) || '0.00'}</p>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${item.available ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
                       }`}>{item.available ? 'Available' : 'Out of Stock'}</span>
                   </div>

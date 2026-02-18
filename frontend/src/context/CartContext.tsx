@@ -259,7 +259,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       getOrder,
       createPayment,
     }),
-    [cartItems, loading, error, addToCart, removeFromCart, updateQuantity, clearCart, getTotalPrice, getItemCount, checkout, getOrder, createPayment]
+    [cartItems, loading, error, addToCart, removeFromCart, updateQuantity, clearCart, getTotalPrice, getItemCount, initCart, checkout, getOrder, createPayment]
   );
 
   return (

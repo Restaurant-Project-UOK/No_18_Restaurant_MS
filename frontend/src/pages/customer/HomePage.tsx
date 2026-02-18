@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useMenu } from '../../context/MenuContext';
@@ -11,7 +11,7 @@ export default function CustomerHomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { categories, getItemsByCategory } = useMenu();
-  const { cartItems, addToCart, removeFromCart, updateQuantity, getTotalPrice, checkout: checkoutCart, loading: cartLoading } = useCart();
+  const { cartItems, addToCart, removeFromCart, updateQuantity, getTotalPrice, checkout: checkoutCart, loading: cartLoading, initCart } = useCart();
   const { loadUserHistory, getOrdersByCustomer } = useOrders();
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [showCart, setShowCart] = useState(false);
@@ -26,6 +26,16 @@ export default function CustomerHomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [lastOrderId, setLastOrderId] = useState('');
+
+  // Initialize cart session when menu page loads (POST /api/cart/open)
+  useEffect(() => {
+    const token = localStorage.getItem('auth_access_token');
+    if (token) {
+      initCart(token).catch((err: unknown) => {
+        console.warn('[HomePage] Cart init failed (may already be open):', err);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load order history when requested
   const handleShowHistory = async () => {
@@ -407,40 +417,66 @@ export default function CustomerHomePage() {
 
             {/* MENU ITEMS - Vertical Stack */}
             <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
-              {menuItems.map((item) => (
-                <div key={item.id} className="bg-brand-darker border border-brand-border rounded-lg overflow-hidden hover:border-brand-primary transition-colors">
-                  <div className="flex gap-3 p-3">
-                    {/* Item Image */}
-                    <div className="w-16 h-16 bg-brand-dark flex items-center justify-center rounded-lg overflow-hidden flex-shrink-0">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <MdRestaurant className="text-2xl text-gray-500" />
-                      )}
-                    </div>
+              {menuItems.map((item) => {
+                const cartItem = cartItems.find(ci => ci.menuItem.id === item.id);
+                const isAvailable = item.available ?? item.isActive;
+                return (
+                  <div key={item.id} className="bg-brand-darker border border-brand-border rounded-lg overflow-hidden hover:border-brand-primary transition-colors">
+                    <div className="flex gap-3 p-3">
+                      {/* Item Image */}
+                      <div className="w-16 h-16 bg-brand-dark flex items-center justify-center rounded-lg overflow-hidden flex-shrink-0">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <MdRestaurant className="text-2xl text-gray-500" />
+                        )}
+                      </div>
 
-                    {/* Item Details */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-white text-sm mb-1">{item.name}</h3>
-                      <p className="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
+                      {/* Item Details */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-white text-sm mb-1">{item.name}</h3>
+                        <p className="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
 
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-brand-primary">${item.price.toFixed(2)}</span>
-                        <button
-                          onClick={() => handleAddToCart(item)}
-                          disabled={!(item.available ?? item.isActive) || cartLoading}
-                          className={`px-3 py-1 rounded text-sm font-semibold transition-colors flex items-center gap-1 ${(item.available ?? item.isActive) && !cartLoading
-                            ? 'bg-brand-primary hover:bg-orange-600 text-white'
-                            : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                            }`}
-                        >
-                          <MdAdd className="text-base" /> Add
-                        </button>
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-bold text-brand-primary">${item.price?.toFixed(2) || '0.00'}</span>
+
+                          {/* Show +/- controls if item is in cart, otherwise show Add button */}
+                          {cartItem ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => updateQuantity(item.id, cartItem.quantity - 1)}
+                                disabled={cartLoading}
+                                className="w-7 h-7 flex items-center justify-center bg-brand-dark border border-brand-border rounded-md hover:bg-red-900/30 hover:border-red-700 transition-colors disabled:opacity-50"
+                              >
+                                <MdRemove className="text-white text-sm" />
+                              </button>
+                              <span className="w-7 text-center text-sm font-bold text-white">{cartItem.quantity}</span>
+                              <button
+                                onClick={() => updateQuantity(item.id, cartItem.quantity + 1)}
+                                disabled={cartLoading}
+                                className="w-7 h-7 flex items-center justify-center bg-brand-primary hover:bg-orange-600 rounded-md transition-colors disabled:opacity-50"
+                              >
+                                <MdAdd className="text-white text-sm" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleAddToCart(item)}
+                              disabled={!isAvailable || cartLoading}
+                              className={`px-3 py-1 rounded text-sm font-semibold transition-colors flex items-center gap-1 ${isAvailable && !cartLoading
+                                ? 'bg-brand-primary hover:bg-orange-600 text-white'
+                                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
+                              <MdAdd className="text-base" /> Add
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div className="h-4" />
             </div>
           </>
